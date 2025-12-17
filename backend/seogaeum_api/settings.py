@@ -39,7 +39,7 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "users",
     "rest_framework",
-    "corheaders",
+    "corsheaders",
 ]
 
 MIDDLEWARE = [
@@ -124,10 +124,6 @@ AUTH_USER_MODEL = 'users.User'
 
 # CORS 설정 
 CORS_ALLOWED_ORIGINS = [
-    # 개발 환경에서 Vue.js 서버 주소
-    "http://localhost:8080",
-    "http://127.0.0.1:8080",
-    
-    # 만약 Vite를 사용한다면 다른 포트가 사용될 수 있습니다 (예: 5173)
-    # "http://localhost:5173", 
+    'http://127.0.0.1:5173',
+    'http://localhost:5173',
 ]
