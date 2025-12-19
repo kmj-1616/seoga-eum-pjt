@@ -1,6 +1,12 @@
 from django.db import models
 from django.conf import settings
 
+class Category(models.Model):
+    name = models.CharField(max_length=50)
+
+    def __str__(self):
+        return self.name
+
 class Book(models.Model):
     # 기본 도서 정보 (도서관정보나루 API 활용) 
     title = models.CharField(max_length=200)
@@ -10,8 +16,8 @@ class Book(models.Model):
     isbn = models.CharField(max_length=13, unique=True)
     description = models.TextField(null=True, blank=True)
     cover_url = models.URLField(max_length=500, null=True, blank=True)
-    category = models.CharField(max_length=100, null=True, blank=True) # 장르
-    
+    # Category 모델과의 관계 설정
+    category = models.ForeignKey(Category, on_delete=models.SET_NULL, null=True, blank=True, related_name='books')
     # 추천 및 활동 데이터
     loan_count = models.IntegerField(default=0) # 전체 대출 횟수
     

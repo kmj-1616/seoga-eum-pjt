@@ -1,8 +1,17 @@
+import os
 from pathlib import Path
+from dotenv import load_dotenv
+
+# .env 파일 로드 
+load_dotenv()
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = "django-insecure-xmhcg^l2z@_fbk%-^q=1cig1ca$&3$fc(s+79r$a2e&vwo12$e"
 DEBUG = True
+
+# API 키 
+LIBRARY_API_KEY = os.getenv("LIBRARY_API_KEY")
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
 ALLOWED_HOSTS = []
 
@@ -118,3 +127,7 @@ REST_FRAMEWORK = {
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     ),
 }
+
+FIXTURE_DIRS = [
+    os.path.join(BASE_DIR, 'fixtures'),
+]
