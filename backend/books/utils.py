@@ -25,12 +25,35 @@ def fetch_books_from_api(api_type="loanItemSrch"):
         print(f"⚠️ API 호출 에러: {e}")
     return None
 
-def clean_text(text):
-    """저자명 등에서 불필요한 문구를 제거"""
-    if not text: return ""
-    # '지은이:', '저자:' 등을 제거하고 앞뒤 공백 정리
-    text = re.sub(r'^(지은이|저자|글|그림|옮긴이)\s*[:：]\s*', '', text)
-    return text.strip()
+def clean_book_data(title, author):
+    # 1. 제목 정제 (기존 로직 유지)
+    clean_title = re.split(r'[:;=]', title)[0].strip()
+    if not clean_title:
+        clean_title = title.strip()
+
+    # 2. 저자 정제 고도화
+    # (1) 괄호와 그 안의 내용 모두 제거 (예: (지은이), [지음], (글) 등 삭제)
+    # 
+    clean_author = re.sub(r'[\(\[].*?[\)\]]', '', author).strip()
+    
+    # (2) 불필요한 접두어 및 수식어 제거 (글:, 그림:, 지은이: 등)
+    clean_author = re.sub(r'^(지은이|원작|저자|글·그림|글|그림|저|원작|특대호 원고)[:\s]*', '', clean_author).strip()
+    
+    # (3) 구분자(세미콜론, 쉼표, 슬래시) 기준으로 자르기
+    clean_author = re.split(r'[;,/]', clean_author)[0].strip()
+    
+    # (4) 남은 텍스트에서 불필요한 단어 제거 (글, 그림 등이 단독으로 남은 경우)
+    clean_author = re.sub(r'\s*(지음|옮김|역|그림|글|글·|원작|엮음|그린이|옮긴이|감수|원고)$', '', clean_author).strip()
+
+    # (5) 최종 예외 처리
+    if not clean_author or len(clean_author) < 1:
+        if author:
+            # 정제 실패 시 원본에서 가장 앞의 단어라도 추출
+            clean_author = re.sub(r'[\(\[].*?[\)\]]', '', author).split()[0].strip()
+        else:
+            clean_author = "저자 미상"
+            
+    return clean_title, clean_author
 
 def get_detailed_info(isbn):
     auth_key = getattr(settings, 'LIBRARY_API_KEY', None)
@@ -88,39 +111,40 @@ def update_books_from_api(page_count=5):
                 isbn = book_info.get('isbn13')
                 if not isbn: continue
 
-                author = clean_text(book_info.get('authors', ''))
-                title = book_info.get('bookname', '')
+                # 1. 원본 데이터 가져오기
+                raw_title = book_info.get('bookname', '')
+                raw_author = book_info.get('authors', '')
 
-                # 상세 정보(줄거리 + 대출건수) 가져오기
+                # 2. 정제 함수 호출 (제목의 부제와 저자의 불필요한 수식어 제거)
+                title, author = clean_book_data(raw_title, raw_author)
+
+                # 3. 상세 정보(줄거리 + 대출건수) 가져오기
                 detailed_data = get_detailed_info(isbn)
                 
                 description = detailed_data["description"]
                 if not description:
+                    # 상세 줄거리가 없으면 원본의 짧은 줄거리라도 사용
                     description = book_info.get('description', f"{title}에 대한 상세 정보가 준비 중입니다.")
                 
                 loan_count = detailed_data["loan_count"]
 
+                # 4. 카테고리 처리 
                 class_nm = book_info.get('class_nm', '').strip()
-                
-                # 데이터가 없거나 비어있는 경우 "기타"로 처리
                 if not class_nm:
                     category_name = "기타"
                 else:
-                    # '문학 > 한국문학' -> '문학' 추출
                     category_name = class_nm.split('>')[0].strip()
-                    
-                    # split 후에도 빈 문자열이거나 값이 이상하면 "기타"
                     if not category_name:
                         category_name = "기타"
                 
-                # DB 저장
                 category_instance, _ = Category.objects.get_or_create(name=category_name)
 
+                # 5. DB 저장 및 업데이트
                 book, created = Book.objects.update_or_create(
                     isbn=isbn,
                     defaults={
-                        'title': title,
-                        'author': author,
+                        'title': title, 
+                        'author': author, 
                         'publisher': book_info.get('publisher'),
                         'description': description,
                         'cover_url': book_info.get('bookImageURL'),
@@ -136,59 +160,6 @@ def update_books_from_api(page_count=5):
             print(f"❌ {page_no}페이지 처리 중 오류: {e}")
 
     print(f"✅ 동기화 완료! (새로 추가: {new_count}, 갱신: {updated_count})")
-
-# def import_all_data():
-#     """categories.json과 books.json 데이터를 통합 임포트"""
-#     # 1. 카테고리 임포트
-#     cat_path = os.path.join(settings.BASE_DIR, 'fixtures', 'categories.json')
-#     try:
-#         with open(cat_path, 'r', encoding='utf-8') as f:
-#             categories_data = json.load(f)
-#             for cat in categories_data:
-#                 Category.objects.get_or_create(
-#                     id=cat['pk'],
-#                     defaults={'name': cat['fields']['name']}
-#                 )
-#         print("✅ 카테고리 데이터 임포트 완료")
-#     except FileNotFoundError:
-#         print("❌ categories.json 파일을 찾을 수 없습니다.")
-
-#     # 2. 도서 데이터 임포트
-#     book_path = os.path.join(settings.BASE_DIR, 'fixtures', 'books.json')
-#     try:
-#         with open(book_path, 'r', encoding='utf-8') as f:
-#             books_data = json.load(f)
-            
-#         new_books_count = 0
-#         for item in books_data:
-#             fields = item['fields']
-#             category_instance = Category.objects.filter(id=fields.get('category')).first()
-            
-#             pub_year = None
-#             raw_date = fields.get('pub_date')
-#             if raw_date and len(raw_date) >= 4:
-#                 try:
-#                     pub_year = int(raw_date[:4])
-#                 except ValueError:
-#                     pass
-
-#             book, created = Book.objects.get_or_create(
-#                 isbn=fields.get('isbn'),
-#                 defaults={
-#                     'title': fields.get('title'),
-#                     'author': fields.get('author'),
-#                     'publisher': fields.get('publisher'),
-#                     'description': fields.get('description'),
-#                     'cover_url': fields.get('cover'),
-#                     'category': category_instance,
-#                     'pub_year': pub_year,
-#                 }
-#             )
-#             if created:
-#                 new_books_count += 1
-#         print(f"✅ 도서 데이터 임포트 완료 (새로 추가: {new_books_count}개)")
-#     except FileNotFoundError:
-#         print("❌ books.json 파일을 찾을 수 없습니다.")
 
 def generate_ai_recommendations(user):
     """SSAFY GMS 최종 가이드에 맞춘 AI 추천 함수 (데이터 퀄리티 보강)"""
