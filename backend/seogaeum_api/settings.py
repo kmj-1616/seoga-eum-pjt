@@ -1,6 +1,7 @@
 import os
 from pathlib import Path
 from dotenv import load_dotenv
+from datetime import timedelta
 
 # .env 파일 로드 
 load_dotenv()
@@ -128,6 +129,21 @@ REST_FRAMEWORK = {
     ),
 }
 
-FIXTURE_DIRS = [
-    os.path.join(BASE_DIR, 'fixtures'),
-]
+SIMPLE_JWT = {
+    # 1. Access Token: 실제 인증에 사용 (짧게 유지)
+    'ACCESS_TOKEN_LIFETIME': timedelta(hours=3), # 개발 편의를 위해 3시간으로 설정
+    
+    # 2. Refresh Token: Access Token을 재발급받을 때 사용 (길게 유지)
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
+    
+    # 3. 토큰 회전 (Rotate): Refresh Token을 사용해 Access를 갱신할 때마다 
+    # 새로운 Refresh Token도 함께 발급할지 여부 (보안 강화)
+    'ROTATE_REFRESH_TOKENS': True,
+    
+    # 4. 블랙리스트 (Blacklist): 로그아웃된 토큰을 다시 사용하지 못하게 기록
+    'BLACKLIST_AFTER_ROTATION': True,
+    
+    # 5. 인증 헤더 설정
+    'AUTH_HEADER_TYPES': ('Bearer',),
+    'AUTH_TOKEN_CLASSES': ('rest_framework_simplejwt.tokens.AccessToken',),
+}
