@@ -32,61 +32,90 @@ def clean_text(text):
     text = re.sub(r'^(지은이|저자|글|그림|옮긴이)\s*[:：]\s*', '', text)
     return text.strip()
 
-def get_detailed_description(isbn):
-    """상세 조회 API를 통해 누락된 줄거리 보강"""
+def get_detailed_info(isbn):
     auth_key = getattr(settings, 'LIBRARY_API_KEY', None)
     url = "http://data4library.kr/api/srchDtlList"
-    params = {"authKey": auth_key, "isbn13": isbn, "format": "json"}
+    params = {
+        "authKey": auth_key, 
+        "isbn13": isbn, 
+        "loaninfoYN": "Y", 
+        "format": "json"
+    }
+    
+    result = {"description": "", "loan_count": 0}
     try:
         res = requests.get(url, params=params)
-        data = res.json()
-        # API 응답 구조에 따라 안전하게 추출
-        detail = data.get('response', {}).get('detail', [])
-        if detail:
-            return detail[0].get('book', {}).get('description', "")
-    except:
-        pass
-    return ""
+        response_json = res.json().get('response', {})
+        
+        # 1. 줄거리 추출
+        detail = response_json.get('detail', [])
+        if detail and isinstance(detail, list):
+            result["description"] = detail[0].get('book', {}).get('description', "")
+            
+        # 2. 대출 건수 추출 
+        loan_info_data = response_json.get('loanInfo', [])
+        
+        # loan_info_data가 리스트 형태이고 내용이 있을 때만 실행
+        if isinstance(loan_info_data, list) and len(loan_info_data) > 0:
+            total_info = loan_info_data[0].get('Total', {})
+            # total_info가 dict가 아닐 경우를 대비해 한 번 더 체크
+            if isinstance(total_info, dict):
+                result["loan_count"] = int(total_info.get('loanCnt', 0))
+                
+    except Exception as e:
+        print(f"⚠️ 데이터 파싱 건너뜀 ({isbn}): {e}")
+    
+    return result
 
 def update_books_from_api(page_count=5):
-    """인기 도서 목록을 가져와서 DB를 최신화 (줄거리 보강 포함)"""
+    """인기 도서 목록을 가져와서 DB를 최신화 (줄거리 & 대출 건수 포함)"""
     auth_key = getattr(settings, 'LIBRARY_API_KEY', None)
     base_url = "http://data4library.kr/api/loanItemSrch"
     
     new_count = 0
     updated_count = 0
     
-    print(f"🔄 총 {page_count}페이지에 걸쳐 데이터 동기화를 시작합니다...")
+    print(f"🔄 총 {page_count}페이지 동기화 시작...")
 
     for page_no in range(1, page_count + 1):
         params = {"authKey": auth_key, "pageSize": 50, "pageNo": page_no, "format": "json"}
         try:
             response = requests.get(base_url, params=params)
-            data = response.json()
-            docs = data.get('response', {}).get('docs', [])
+            docs = response.json().get('response', {}).get('docs', [])
             
             for item in docs:
                 book_info = item.get('doc', {})
                 isbn = book_info.get('isbn13')
                 if not isbn: continue
 
-                # 저자명 정제 및 제목 가져오기
                 author = clean_text(book_info.get('authors', ''))
                 title = book_info.get('bookname', '')
 
-                # 줄거리 확인 및 보강
-                description = book_info.get('description', '').strip()
-                if not description:
-                    description = get_detailed_description(isbn)
+                # 상세 정보(줄거리 + 대출건수) 가져오기
+                detailed_data = get_detailed_info(isbn)
                 
+                description = detailed_data["description"]
                 if not description:
-                    description = f"{title}에 대한 상세 정보가 준비 중입니다."
+                    description = book_info.get('description', f"{title}에 대한 상세 정보가 준비 중입니다.")
+                
+                loan_count = detailed_data["loan_count"]
 
-                # 카테고리 처리
-                category_raw = book_info.get('class_nm', '기타').split('>')[0].strip()
-                category_instance, _ = Category.objects.get_or_create(name=category_raw)
+                class_nm = book_info.get('class_nm', '').strip()
+                
+                # 데이터가 없거나 비어있는 경우 "기타"로 처리
+                if not class_nm:
+                    category_name = "기타"
+                else:
+                    # '문학 > 한국문학' -> '문학' 추출
+                    category_name = class_nm.split('>')[0].strip()
+                    
+                    # split 후에도 빈 문자열이거나 값이 이상하면 "기타"
+                    if not category_name:
+                        category_name = "기타"
+                
+                # DB 저장
+                category_instance, _ = Category.objects.get_or_create(name=category_name)
 
-                # DB 저장 (isbn을 기준으로 중복 방지)
                 book, created = Book.objects.update_or_create(
                     isbn=isbn,
                     defaults={
@@ -95,23 +124,18 @@ def update_books_from_api(page_count=5):
                         'publisher': book_info.get('publisher'),
                         'description': description,
                         'cover_url': book_info.get('bookImageURL'),
-                        'category': category_instance,
+                        'category': category_instance, 
                         'pub_year': int(str(book_info.get('publication_year'))[:4]) if book_info.get('publication_year') else None,
+                        'loan_count': loan_count, 
                     }
                 )
-                if created:
-                    new_count += 1
-                else:
-                    updated_count += 1
+                if created: new_count += 1
+                else: updated_count += 1
                     
         except Exception as e:
-            print(f"❌ {page_no}페이지 처리 중 오류 발생: {e}")
+            print(f"❌ {page_no}페이지 처리 중 오류: {e}")
 
-    print("-" * 40)
-    print(f"✅ 데이터 동기화가 성공적으로 완료되었습니다!")
-    print(f"✨ 새로 추가된 도서: {new_count}권")
-    print(f"🔄 정보가 갱신된 도서: {updated_count}권")
-    print("-" * 40)
+    print(f"✅ 동기화 완료! (새로 추가: {new_count}, 갱신: {updated_count})")
 
 # def import_all_data():
 #     """categories.json과 books.json 데이터를 통합 임포트"""
