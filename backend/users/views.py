@@ -2,6 +2,7 @@ from rest_framework import status, generics
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.permissions import AllowAny, IsAuthenticated
+from django.contrib.auth.models import update_last_login
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth import authenticate
 from .serializers import (
@@ -10,15 +11,16 @@ from .serializers import (
     UserUpdateSerializer
 )
 
-# 1. 회원가입 API (F02)
+# 1. 회원가입 API (F02) 
 class UserRegistrationView(generics.CreateAPIView):
     permission_classes = [AllowAny]
-    serializer_class = UserRegistrationSerializer
+    serializer_class = UserRegistrationSerializer   # 회원가입과 동시에 자동 로그인
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
+        update_last_login(None, user)
 
         # JWT 토큰 생성
         refresh = RefreshToken.for_user(user)
@@ -56,8 +58,9 @@ class UserLoginView(APIView):
                 status=status.HTTP_401_UNAUTHORIZED
             )
 
-        # JWT 토큰 생성
-        refresh = RefreshToken.for_user(user)
+        # user가 존재하면 
+        update_last_login(None, user) # last_login 기록
+        refresh = RefreshToken.for_user(user) # 토큰 생성
 
         return Response({
             'message': '로그인 성공',
