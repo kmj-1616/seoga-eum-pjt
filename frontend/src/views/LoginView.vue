@@ -25,8 +25,8 @@
       <button type="submit" class="login-submit-btn">신분 확인</button>
 
       <div class="login-helper">
-        <span>계정이 없으신가요?</span>
-        <router-link to="/signup">회원가입 하러가기</router-link>
+        <span>명부에 없으신가요?</span>
+        <router-link to="/signup">명부 등록 하러 가기</router-link>
       </div>
     </form>
   </div>
@@ -48,27 +48,25 @@ export default {
   methods: {
     async handleLogin() {
       try {
-        // 동료분이 만든 로그인 엔드포인트 호출
         const response = await axios.post('http://127.0.0.1:8000/api/v1/users/login/', this.loginData);
         
-        // 1. 토큰 저장 (Access, Refresh 모두 저장하는 것이 좋습니다)
+        // 1. 토큰 저장
         localStorage.setItem('access_token', response.data.tokens.access);
         localStorage.setItem('refresh_token', response.data.tokens.refresh);
-        
-        // 2. 사용자 정보 저장 (필요 시)
         localStorage.setItem('user_nickname', response.data.user.nickname);
 
-        alert(`${response.data.user.nickname}님, 환영합니다!`);
-        
-        // 3. 홈으로 이동
-        this.$router.push('/');
-        
-        // 4. (팁) 로그인 상태 반영을 위해 페이지 새로고침을 하거나 
-        // EventBus/Pinia 등으로 상태를 변경하면 네비바가 즉시 바뀝니다.
-        // window.location.href = '/'; 
+        // 2. 리다이렉트 경로 결정
+        // 쿼리에 redirect 정보가 있으면 거기로 가고, 없으면 홈('/')으로 보냅니다.
+        const redirectPath = this.$route.query.redirect || '/';
+
+        // 3. 페이지 이동 및 상태 반영
+        // 상태 반영을 위해 네비바가 Pinia 등을 안 쓴다면 window.location.href가 가장 확실합니다.
+        // 만약 Pinia/Vuex를 사용 중이라면 this.$router.push(redirectPath)를 쓰세요.
+        window.location.href = redirectPath; 
+
       } catch (error) {
         console.error("로그인 에러:", error.response?.data);
-        alert("로그인 실패: " + (error.response?.data?.error || "이메일 또는 비밀번호를 확인하세요."));
+        alert("로그인 실패: " + (error.response?.data?.detail || "이메일 또는 비밀번호를 확인하세요."));
       }
     }
   }
