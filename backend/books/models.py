@@ -45,3 +45,15 @@ class Recommendation(models.Model):
 
     class Meta:
         unique_together = ('user', 'book') # 한 유저에게 한 책에 대한 추천은 하나만 저장
+
+class Library(models.Model):
+    lib_code = models.CharField(max_length=20, primary_key=True) # libCode
+    lib_name = models.CharField(max_length=100) # libName
+    address = models.CharField(max_length=255) # address
+    tel = models.CharField(max_length=20, null=True, blank=True)
+    latitude = models.FloatField(null=True, blank=True)
+    longitude = models.FloatField(null=True, blank=True)
+    homepage = models.URLField(max_length=500, null=True, blank=True)
+
+    def __str__(self):
+        return self.lib_name
