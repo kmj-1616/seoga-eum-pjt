@@ -1,4 +1,4 @@
-# 📚 서가이음(Seogaeum) API 명세서 (v1.2)
+# 📚 서가이음(Seogaeum) API 명세서 (v1.3)
 
 ## 🌐 Base URL
 `http://127.0.0.1:8000/api/v1`
@@ -22,19 +22,28 @@
     ]
     ```
 
-### 2. 도서 상세 정보 조회 (F05)
+### 2. 도서 상세 정보 조회 (F05) - ✨ Update
 * **Endpoint:** `/{isbn}/`
 * **Method:** `GET` 
-* **Description:** 특정 도서의 상세 정보와 현재 로그인 유저의 찜/소장 여부를 함께 반환합니다.
+* **Description:** 도서 정보와 유저 상태(찜/소장), 그리고 **실시간 주변/관심 도서관 소장/대출 현황**을 통합하여 반환합니다.
 * **Response Example:**
     ```json
     {
-      "isbn": "9788937473135",
-      "title": "작별하지 않는다",
-      "is_wished": true, 
-      "is_owned": false,
-      "loan_count": 120,
-      "description": "..."
+        "id": 465,
+        "title": "내 심장을 쏴라",
+        "is_wish": true, 
+        "is_owned": false,
+        "library_status": [
+            {
+                "libCode": "127521",
+                "libName": "달서구립도원도서관",
+                "hasBook": "Y",
+                "loanAvailable": "Y",
+                "distance": 1.25,
+                "address": "...",
+                "homepage": "..."
+            }
+        ]
     }
     ```
 
@@ -44,11 +53,28 @@
 * **Auth:** **Token 필요**
 * **Path Variable:** `action`에 `wish` 또는 `owned` 입력 (Toggle 방식)
 
-### 4. AI 맞춤 도서 추천 (F04)
+### 4. AI 맞춤 도서 추천 (F04) - ✨ Update
 * **Endpoint:** `/recommendations/`
 * **Method:** `GET` 
 * **Auth:** **Token 필요**
-* **Description:** 유저 취향 기반 AI 추천 데이터 5건 반환.
+* **Description:** 유저 취향(다중 장르) 및 통계 기반 추천 5건을 반환합니다. **감성적인 추천 문구(reason)**가 포함됩니다.
+* **Response Example:**
+    ```json
+    {
+        "id": 19,
+        "book": {
+            "id": 76,
+            "title": "총, 균, 쇠",
+            "author": "재레드 다이아몬드",
+            "cover_url": "http://image.aladin.co.kr/product/61/50/cover/8970127240_2.jpg",
+            "category": 5,
+            "category_name": "사회과학",
+            "loan_count": 0
+        },
+        "reason": "문명의 비밀을 파헤친다!",
+        "created_at": "2025-12-22T15:23:19.973621+09:00"
+    },
+    ```
 
 ---
 
@@ -65,13 +91,17 @@
         "password": "password123",
         "password_confirm": "password123",
         "nickname": "서가이음",
-        "favorite_libraries": "강남도서관,서초도서관",
+        "favorite_libraries": "달서구립도원도서관,강남도서관",
         "age_group": "20s",
         "gender": "M",
-        "preferred_genres": "소설,인문"
+        "preferred_genres": "소설,인문",
+        "latitude": 35.8034,
+        "longitude": 128.5211
     }
     ```
-* **Note:** 가입 성공 시 자동 로그인 처리되어 `tokens`(access, refresh)가 반환됩니다.
+* **Note:** 
+    * 가입 성공 시 자동 로그인 처리되어 `tokens`(access, refresh)가 반환됩니다.
+    * Note: 최초 실행 시 사용자가 Geolocation API에 따른 위치 확인 권한 허용 시 실시간 위치 기반 도서관이 조회됩니다. (기본 좌표 멀티캠퍼스 역삼)
 
 ### 2. 로그인 (F03)
 * **Endpoint:** `/login/`
@@ -84,10 +114,10 @@
 * **Body:** `{"refresh": "REFRESH_TOKEN_STRING"}`
 * **Note:** 사용한 Refresh 토큰을 블랙리스트에 등록하여 무효화합니다.
 
-### 4. 프로필 관리 (F04)
+### 4. 프로필 관리 (F04) - ✨ Update
 * **조회:** `GET` `/profile/` (인증 필요)
 * **수정:** `PATCH` `/profile/update/` (인증 필요)
-    * **Note:** 닉네임, 나이대, 장르 등 수정 가능 (Partial Update 지원)
+    * **Note:** 닉네임, 나이대, 장르 등 수정 시 **AI 추천 데이터가 백그라운드에서 자동으로 갱신**됩니다.
 
 ---
 
@@ -119,7 +149,7 @@
 
 ---
 
-## 💡 프론트엔드 개발 가이드
+## 💡 프론트엔드 개발 가이드 (v1.3 업데이트)
 1. **인증 헤더:** 권한이 필요한 API 호출 시 헤더에 `Authorization: Bearer <Access_Token>`을 포함해야 합니다.
 2. **자동 로그인:** 회원가입 성공 시에도 토큰이 발급되므로 바로 메인 페이지 진입이 가능합니다.
 3. **데이터 포맷:** `favorite_libraries`와 `preferred_genres`는 쉼표(`,`)로 구분된 문자열로 통신합니다.
@@ -127,3 +157,7 @@
     * `401 Unauthorized`: 토큰 만료 또는 인증 실패
     * `404 Not Found`: 존재하지 않는 ISBN으로 요청 시
     * `400 Bad Request`: 필수 필드 누락 또는 유효하지 않은 데이터(비밀번호 불일치 등)
+5. **관심 도서관(favorite_libraries)**: 도서 상세페이지의 library_status에서 유저가 등록한 도서관 이름이 최상단에 우선 배치됩니다.
+6. **다중 카테고리**: preferred_genres에 여러 개를 보낼 경우(예: "과학, 소설"), AI가 두 분야를 골고루 섞어서 추천 후보를 선정합니다.
+7. **추천 문구 활용**: 홈 화면의 AI 추천 섹션에서는 reason 필드를 활용해 느낌표로 끝나는 강렬한 문구를 노출해 주세요.
+8. **위치 정보**: 위도(latitude)와 경도(longitude) 값이 정확할수록 실시간 대출 현황의 distance 값이 정확하게 계산됩니다. (Geolocation API)
