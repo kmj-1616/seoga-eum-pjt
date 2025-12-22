@@ -1,0 +1,222 @@
+[
+{
+    "model": "users.user",
+    "pk": 1,
+    "fields": {
+        "password": "pbkdf2_sha256$1000000$0v7BQ7tOxnFG1TSz1iUiVB$Uuv60BBdKdfh/jec7Skt2FUW5Qyimi4vgFj0/uVHQy4=",
+        "last_login": "2025-12-22T00:32:58.428Z",
+        "is_superuser": true,
+        "is_staff": true,
+        "is_active": true,
+        "date_joined": "2025-12-22T00:30:36.562Z",
+        "email": "admin@gmail.com",
+        "nickname": "admin",
+        "favorite_libraries": "강서구립가양도서관",
+        "age_group": "20s",
+        "gender": "F",
+        "preferred_genres": "문학",
+        "groups": [],
+        "user_permissions": []
+    }
+},
+{
+    "model": "users.user",
+    "pk": 2,
+    "fields": {
+        "password": "pbkdf2_sha256$1000000$NnjtRhRaMrf54wlhaUn7SH$oQQl5m1IQkUV7GjOiu/sFBuuKr3pjqHVBNJQH+7XN0o=",
+        "last_login": "2025-12-22T00:54:12.601Z",
+        "is_superuser": false,
+        "is_staff": false,
+        "is_active": true,
+        "date_joined": "2025-12-22T00:54:11.887Z",
+        "email": "user1@gmail.com",
+        "nickname": "나는야독서왕",
+        "favorite_libraries": "강남도서관,서초도서관",
+        "age_group": "20s",
+        "gender": "M",
+        "preferred_genres": "문학, 철학",
+        "groups": [],
+        "user_permissions": []
+    }
+},
+{
+    "model": "users.user",
+    "pk": 3,
+    "fields": {
+        "password": "pbkdf2_sha256$1000000$V38BMdFRXR9UHpa2NYXkeD$f9tITLH7tc1bV06fA9VzGQUUJ1e+JfhawRGb0vV2ubo=",
+        "last_login": "2025-12-22T00:57:54.889Z",
+        "is_superuser": false,
+        "is_staff": false,
+        "is_active": true,
+        "date_joined": "2025-12-22T00:57:54.161Z",
+        "email": "user2@gmail.com",
+        "nickname": "책이너무좋아요",
+        "favorite_libraries": "가온도서관",
+        "age_group": "40s",
+        "gender": "F",
+        "preferred_genres": "자연과학",
+        "groups": [],
+        "user_permissions": []
+    }
+},
+{
+    "model": "users.user",
+    "pk": 4,
+    "fields": {
+        "password": "pbkdf2_sha256$1000000$9Ju4TJaVQVoFXyythHLxAh$npm+goIkDs/lcZ4NUYpJezkTRQUI/gh2s8568V6qr5M=",
+        "last_login": "2025-12-22T00:58:55.475Z",
+        "is_superuser": false,
+        "is_staff": false,
+        "is_active": true,
+        "date_joined": "2025-12-22T00:58:54.756Z",
+        "email": "user3@gmail.com",
+        "nickname": "이동진",
+        "favorite_libraries": "강동숲속도서관",
+        "age_group": "30s",
+        "gender": "M",
+        "preferred_genres": "기타,언어",
+        "groups": [],
+        "user_permissions": []
+    }
+},
+{
+    "model": "users.user",
+    "pk": 5,
+    "fields": {
+        "password": "pbkdf2_sha256$1000000$mA19edbg29LRQQR7pVptQw$x6yCW9wzwQEIfUX1qA0Y+9TY9ZmKijk68Yk6KiX6CHA=",
+        "last_login": "2025-12-22T00:59:53.026Z",
+        "is_superuser": false,
+        "is_staff": false,
+        "is_active": true,
+        "date_joined": "2025-12-22T00:59:52.313Z",
+        "email": "user4@gmail.com",
+        "nickname": "책짱구",
+        "favorite_libraries": "강동구립천호도서관",
+        "age_group": "50s",
+        "gender": "M",
+        "preferred_genres": "사회과학,기술과학",
+        "groups": [],
+        "user_permissions": []
+    }
+},
+{
+    "model": "users.user",
+    "pk": 6,
+    "fields": {
+        "password": "pbkdf2_sha256$1000000$Hjwg43pnknaPWhLbPUo5GG$xYiDLi5EWIN+5+jrvGGoQFRyq9R6URgYEImM5WzHhP0=",
+        "last_login": "2025-12-22T01:01:01.461Z",
+        "is_superuser": false,
+        "is_staff": false,
+        "is_active": true,
+        "date_joined": "2025-12-22T01:01:00.747Z",
+        "email": "user5@gmail.com",
+        "nickname": "영피프티",
+        "favorite_libraries": "공릉행복도서관",
+        "age_group": "50s",
+        "gender": "F",
+        "preferred_genres": "역사, 언어",
+        "groups": [],
+        "user_permissions": []
+    }
+},
+{
+    "model": "users.user",
+    "pk": 7,
+    "fields": {
+        "password": "pbkdf2_sha256$1000000$cJitVsdg6z59k4KEsHZK3k$OXtBeIOl0HgxJGMZsrrp6+vlI5Au6eNIy6v9tq2LGsY=",
+        "last_login": "2025-12-22T01:01:34.243Z",
+        "is_superuser": false,
+        "is_staff": false,
+        "is_active": true,
+        "date_joined": "2025-12-22T01:01:33.521Z",
+        "email": "user6@gmail.com",
+        "nickname": "틱톡중독자",
+        "favorite_libraries": "공주기적의도서관",
+        "age_group": "20s",
+        "gender": "F",
+        "preferred_genres": "기술과학,종교",
+        "groups": [],
+        "user_permissions": []
+    }
+},
+{
+    "model": "users.user",
+    "pk": 8,
+    "fields": {
+        "password": "pbkdf2_sha256$1000000$Y2MVA70tF2SXucjTHOcXd9$bVAYT2N8EUiCA2eGmjBPBcTE22oh/P0lKLwIe0Y6PCw=",
+        "last_login": "2025-12-22T01:02:23.147Z",
+        "is_superuser": false,
+        "is_staff": false,
+        "is_active": true,
+        "date_joined": "2025-12-22T01:02:22.438Z",
+        "email": "user7@gmail.com",
+        "nickname": "죽기전에빵한입",
+        "favorite_libraries": "광주시립오포도서관",
+        "age_group": "40s",
+        "gender": "F",
+        "preferred_genres": "기술과학,언어,총류,예술",
+        "groups": [],
+        "user_permissions": []
+    }
+},
+{
+    "model": "users.user",
+    "pk": 9,
+    "fields": {
+        "password": "pbkdf2_sha256$1000000$amZAYYPzcb3oVX1QTmOcDg$QOjqucAQEPADaO2t+d1bU7UNLuAwkbLiOyRkAQbCZRI=",
+        "last_login": "2025-12-22T01:03:07.346Z",
+        "is_superuser": false,
+        "is_staff": false,
+        "is_active": true,
+        "date_joined": "2025-12-22T01:03:06.635Z",
+        "email": "user8@gmail.com",
+        "nickname": "홍익인간정신",
+        "favorite_libraries": "괴산교육도서관",
+        "age_group": "30s",
+        "gender": "F",
+        "preferred_genres": "총류,역사,기술과학",
+        "groups": [],
+        "user_permissions": []
+    }
+},
+{
+    "model": "users.user",
+    "pk": 10,
+    "fields": {
+        "password": "pbkdf2_sha256$1000000$eAELXvEFafRiuw0UUPCUL8$nwpYB5A2BdE3RoN8EeJUOJcPQd34dYdkSoKbhq/NmBg=",
+        "last_login": "2025-12-22T01:04:07.849Z",
+        "is_superuser": false,
+        "is_staff": false,
+        "is_active": true,
+        "date_joined": "2025-12-22T01:04:07.140Z",
+        "email": "user10@gmail.com",
+        "nickname": "맛있는책구함",
+        "favorite_libraries": "기흥도서관",
+        "age_group": "20s",
+        "gender": "M",
+        "preferred_genres": "기타",
+        "groups": [],
+        "user_permissions": []
+    }
+},
+{
+    "model": "users.user",
+    "pk": 11,
+    "fields": {
+        "password": "pbkdf2_sha256$1000000$xE4v4qt1b9eOyOdF1sLYnB$xywpy5nUJIjaqRqGmS4PWkQOMX823QFrd5Q99ec9jAo=",
+        "last_login": "2025-12-22T01:04:44.533Z",
+        "is_superuser": false,
+        "is_staff": false,
+        "is_active": true,
+        "date_joined": "2025-12-22T01:04:43.818Z",
+        "email": "user9@gmail.com",
+        "nickname": "나야나야나",
+        "favorite_libraries": "기흥도서관",
+        "age_group": "30s",
+        "gender": "M",
+        "preferred_genres": "기타",
+        "groups": [],
+        "user_permissions": []
+    }
+}
+]
