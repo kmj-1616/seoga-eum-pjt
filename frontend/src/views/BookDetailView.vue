@@ -97,7 +97,7 @@ const toggleAction = async (actionType) => {
         query: { redirect: route.fullPath } 
       })
     }
-    return; // ⭐️ 중요: 로그인 페이지로 가거나 취소했으면 여기서 함수 종료
+    return; 
   }
 
   // 2. 로그인 된 상태일 때만 실행되는 로직
