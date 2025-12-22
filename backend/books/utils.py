@@ -230,3 +230,66 @@ def generate_ai_recommendations(user):
     except Exception as e:
         print(f"❌ AI 추천 생성 중 오류: {e}")
         return False
+    
+def import_all_data():
+    """books.json 파일에서 카테고리와 도서를 순서대로 임포트"""
+    
+    path = os.path.join(settings.BASE_DIR, 'fixtures', 'books.json')
+    
+    if not os.path.exists(path):
+        print(f"❌ 파일을 찾을 수 없습니다: {path}")
+        return
+
+    with open(path, 'r', encoding='utf-8') as f:
+        data = json.load(f)
+
+    # 1. 카테고리(Category) 먼저 임포트
+    # (도서가 카테고리를 참조하므로 반드시 먼저 생성되어야 함)
+    cat_count = 0
+    for item in data:
+        if item.get('model') == 'books.category':
+            fields = item['fields']
+            cat, created = Category.objects.update_or_create(
+                id=item['pk'],
+                defaults={'name': fields.get('name')}
+            )
+            if created: cat_count += 1
+    print(f"✅ 카테고리 임포트 완료: {cat_count}개 생성")
+
+    # 2. 도서(Book) 임포트
+    book_count = 0
+    for item in data:
+        if item.get('model') == 'books.book':
+            fields = item['fields']
+            
+            # 카테고리 매칭
+            category_id = fields.get('category')
+            category_instance = Category.objects.filter(id=category_id).first()
+            
+            # 출판연도 정제
+            pub_year = fields.get('pub_year')
+            if not pub_year:
+                raw_date = fields.get('pub_date')
+                if raw_date:
+                    try:
+                        pub_year = int(str(raw_date)[:4])
+                    except (ValueError, TypeError):
+                        pub_year = None
+
+            # 도서 저장 (ISBN 기준)
+            book, created = Book.objects.update_or_create(
+                isbn=fields.get('isbn'),
+                defaults={
+                    'title': fields.get('title'),
+                    'author': fields.get('author'),
+                    'publisher': fields.get('publisher'),
+                    'description': fields.get('description'),
+                    'cover_url': fields.get('cover_url'),
+                    'category': category_instance,
+                    'pub_year': pub_year,
+                    'loan_count': fields.get('loan_count', 0),
+                }
+            )
+            if created: book_count += 1
+            
+    print(f"✅ 도서 임포트 완료: {book_count}개 생성")
