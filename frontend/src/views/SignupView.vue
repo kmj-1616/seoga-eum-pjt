@@ -1,6 +1,6 @@
 <template>
   <div class="signup-container">
-    <h2>회원가입</h2>
+    <h2>명부 작성</h2>
     <form @submit.prevent="handleSignup" class="signup-form">
       <div class="input-group">
         <label>이메일</label>
@@ -18,7 +18,7 @@
       </div>
 
       <div class="input-group">
-        <label>성함 (닉네임)</label>
+        <label>닉네임</label>
         <input type="text" v-model="formData.nickname" required>
       </div>
 
@@ -52,7 +52,7 @@
         </div>
       </div>
 
-      <button type="submit" class="signup-submit-btn">가입하기</button>
+      <button type="submit" class="signup-submit-btn">작성 완료</button>
     </form>
   </div>
 </template>
