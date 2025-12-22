@@ -1,6 +1,7 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status, permissions, generics
+from rest_framework.permissions import AllowAny
 from django.shortcuts import get_object_or_404
 from django.db.models import Q
 from .models import Book, Recommendation, Category, Library
@@ -94,6 +95,8 @@ class BookListView(APIView):
 
 # 도서 정보 상세 조회 
 class BookDetailView(APIView):
+    # 비로그인 유저도 접근할 수 있도록 권한 설정 추가
+    permission_classes = [AllowAny]
 
     def get(self, request, isbn):
         try:
