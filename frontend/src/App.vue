@@ -1,11 +1,18 @@
-<script setup>
-
-</script>
-
 <template>
+  <div>
+    <TheNavbar />
 
+    <router-view />
+  </div>
 </template>
 
-<style scoped>
+<script>
+// components 폴더에 만든 TheNavbar를 불러옵니다.
+import TheNavbar from './components/TheNavbar.vue'
 
-</style>
+export default {
+  components: {
+    TheNavbar
+  }
+}
+</script>
