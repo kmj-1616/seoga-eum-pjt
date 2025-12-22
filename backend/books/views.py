@@ -1,10 +1,10 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework import status, permissions
+from rest_framework import status, permissions, generics
 from django.shortcuts import get_object_or_404
 from django.db.models import Q
-from .models import Book, Recommendation, Category
-from .serializers import RecommendationSerializer, BookSerializer, BookListSerializer, CategorySerializer
+from .models import Book, Recommendation, Category, Library
+from .serializers import RecommendationSerializer, BookSerializer, BookListSerializer, CategorySerializer, LibrarySerializer 
 from .utils import generate_ai_recommendations
 
 # 1. AI 추천 뷰 
@@ -114,3 +114,16 @@ class CategoryListView(APIView):
         categories = Category.objects.all()
         serializer = CategorySerializer(categories, many=True)
         return Response(serializer.data)
+    
+class LibraryListView(generics.ListAPIView):
+    """전국 공공도서관 목록 조회 API"""
+    queryset = Library.objects.all().order_by('lib_name')
+    serializer_class = LibrarySerializer
+
+    # 지역별 필터링이 필요할 경우를 대비
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        region = self.request.query_params.get('region')
+        if region:
+            queryset = queryset.filter(address__contains=region)
+        return queryset

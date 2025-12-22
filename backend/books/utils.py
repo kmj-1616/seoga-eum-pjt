@@ -5,7 +5,7 @@ import xmltodict
 import re
 from django.conf import settings
 from openai import OpenAI
-from .models import Book, Category, Recommendation
+from .models import Book, Category, Recommendation, Library 
 
 def fetch_books_from_api(api_type="loanItemSrch"):
     """도서관정보나루 API 호출 도구"""
@@ -232,7 +232,7 @@ def generate_ai_recommendations(user):
         return False
     
 def import_all_data():
-    """books.json 파일에서 카테고리와 도서를 순서대로 임포트"""
+    """books.json 파일에서 카테고리, 도서관, 도서를 순차적으로 임포트"""
     
     path = os.path.join(settings.BASE_DIR, 'fixtures', 'books.json')
     
@@ -243,53 +243,126 @@ def import_all_data():
     with open(path, 'r', encoding='utf-8') as f:
         data = json.load(f)
 
-    # 1. 카테고리(Category) 먼저 임포트
-    # (도서가 카테고리를 참조하므로 반드시 먼저 생성되어야 함)
+    # 1. 카테고리(Category) 임포트
     cat_count = 0
     for item in data:
         if item.get('model') == 'books.category':
             fields = item['fields']
-            cat, created = Category.objects.update_or_create(
+            Category.objects.update_or_create(
                 id=item['pk'],
                 defaults={'name': fields.get('name')}
             )
-            if created: cat_count += 1
-    print(f"✅ 카테고리 임포트 완료: {cat_count}개 생성")
+            cat_count += 1
+    print(f"✅ 카테고리 임포트 완료: {cat_count}개")
 
-    # 2. 도서(Book) 임포트
+    # 2. 도서관(Library) 임포트
+    lib_count = 0
+    for item in data:
+        if item.get('model') == 'books.library':
+            fields = item['fields']
+            Library.objects.update_or_create(
+                lib_code=item['pk'],
+                defaults={
+                    'lib_name': fields.get('lib_name'),
+                    'address': fields.get('address'),
+                    'tel': fields.get('tel'),
+                    'latitude': fields.get('latitude'),
+                    'longitude': fields.get('longitude'),
+                    'homepage': fields.get('homepage'),
+                }
+            )
+            lib_count += 1
+    print(f"✅ 도서관 임포트 완료: {lib_count}개")
+
+    # 3. 도서(Book) 임포트
     book_count = 0
     for item in data:
         if item.get('model') == 'books.book':
             fields = item['fields']
             
-            # 카테고리 매칭
-            category_id = fields.get('category')
-            category_instance = Category.objects.filter(id=category_id).first()
+            category_instance = Category.objects.filter(id=fields.get('category')).first()
             
-            # 출판연도 정제
+            # pub_year 정제
             pub_year = fields.get('pub_year')
-            if not pub_year:
-                raw_date = fields.get('pub_date')
-                if raw_date:
-                    try:
-                        pub_year = int(str(raw_date)[:4])
-                    except (ValueError, TypeError):
-                        pub_year = None
+            if not pub_year and fields.get('pub_date'):
+                try:
+                    pub_year = int(str(fields.get('pub_date'))[:4])
+                except:
+                    pub_year = None
 
-            # 도서 저장 (ISBN 기준)
-            book, created = Book.objects.update_or_create(
+            Book.objects.update_or_create(
                 isbn=fields.get('isbn'),
                 defaults={
                     'title': fields.get('title'),
                     'author': fields.get('author'),
                     'publisher': fields.get('publisher'),
                     'description': fields.get('description'),
-                    'cover_url': fields.get('cover_url'),
+                    'cover_url': fields.get('cover_url') or fields.get('cover'),
                     'category': category_instance,
                     'pub_year': pub_year,
                     'loan_count': fields.get('loan_count', 0),
                 }
             )
-            if created: book_count += 1
-            
-    print(f"✅ 도서 임포트 완료: {book_count}개 생성")
+            book_count += 1
+    print(f"✅ 도서 임포트 완료: {book_count}개")
+
+# 도서관 목록 업데이트 
+def update_libraries():
+    auth_key = getattr(settings, 'LIBRARY_API_KEY', None)
+    base_url = "http://data4library.kr/api/libSrch"
+    regions = ["11", "31", "22", "21", "23", "24", "25", "26", "32", "33", "34", "35", "36", "37", "38", "39"]
+    total_count = 0
+
+    for region_code in regions:
+        params = {"authKey": auth_key, "region": region_code, "pageSize": 100, "format": "json"}
+        try:
+            response = requests.get(base_url, params=params)
+            data = response.json()
+            libs_list = data.get('response', {}).get('libs', [])
+            for item in libs_list:
+                lib_info = item.get('lib', {})
+                Library.objects.update_or_create(
+                    lib_code=lib_info.get('libCode'),
+                    defaults={
+                        'lib_name': lib_info.get('libName'),
+                        'address': lib_info.get('address'),
+                        'tel': lib_info.get('tel'),
+                        'latitude': float(lib_info.get('latitude')) if lib_info.get('latitude') else None,
+                        'longitude': float(lib_info.get('longitude')) if lib_info.get('longitude') else None,
+                        'homepage': lib_info.get('homepage'),
+                    }
+                )
+                total_count += 1
+        except Exception as e:
+            print(f"Error region {region_code}: {e}")
+    print(f"✅ {total_count}개 도서관 저장 완료")
+
+# 실시간 소장/대출 여부 조회 
+def get_realtime_library_status(isbn, lib_code):
+    """특정 도서관의 도서 실시간 상태 확인"""
+    auth_key = getattr(settings, 'LIBRARY_API_KEY', None)
+    url = "http://data4library.kr/api/bookExist"
+    
+    # 해당 도서관의 이름을 DB에서 가져옴
+    library = Library.objects.filter(lib_code=lib_code).first()
+    lib_name = library.lib_name if library else "알 수 없는 도서관"
+
+    params = {
+        "authKey": auth_key,
+        "libCode": lib_code,
+        "isbn13": isbn,
+        "format": "json"
+    }
+    
+    try:
+        response = requests.get(url, params=params)
+        data = response.json()
+        result = data.get('response', {}).get('result', {})
+        
+        return {
+            "libName": lib_name,
+            "hasBook": result.get('hasBook', 'N'),
+            "loanAvailable": result.get('loanAvailable', 'N')
+        }
+    except Exception:
+        return {"libName": lib_name, "hasBook": "N", "loanAvailable": "N"}
