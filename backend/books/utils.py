@@ -3,9 +3,15 @@ import os
 import requests
 import xmltodict
 import re
+from datetime import datetime, timedelta
 from django.conf import settings
+from django.db.models import Q, Count
+from django.db.models.functions import Cast
+from django.db.models import FloatField
+import math
 from openai import OpenAI
-from .models import Book, Category, Recommendation, Library 
+from .models import Book, Category, Recommendation, Library
+from community.models import ChatMessage
 
 def fetch_books_from_api(api_type="loanItemSrch"):
     """도서관정보나루 API 호출 도구"""
@@ -161,75 +167,124 @@ def update_books_from_api(page_count=5):
 
     print(f"✅ 동기화 완료! (새로 추가: {new_count}, 갱신: {updated_count})")
 
-def generate_ai_recommendations(user):
-    """SSAFY GMS 최종 가이드에 맞춘 AI 추천 함수 (데이터 퀄리티 보강)"""
+def get_popular_books_by_user(user):
+    """사용자의 성별/연령대별 최근 3개월 인기 대출 도서 리스트 조회"""
+    auth_key = getattr(settings, 'LIBRARY_API_KEY', None)
+    url = "http://data4library.kr/api/loanItemSrch"
     
-    if not settings.OPENAI_API_KEY:
-        return False
-
-    client = OpenAI(
-        api_key=settings.OPENAI_API_KEY,
-        base_url="https://gms.ssafy.io/gmsapi/api.openai.com/v1"
-    )
-
-    user_pref_str = user.preferred_genres if user.preferred_genres else "전체"
-    user_info = f"{user.get_age_group_display()} {user.get_gender_display()}" 
+    # 1. 날짜 설정: 현재 날짜 기준 3개월 전부터 어제까지
+    end_dt = (datetime.now() - timedelta(days=1)).strftime('%Y-%m-%d')
+    start_dt = (datetime.now() - timedelta(days=90)).strftime('%Y-%m-%d')
     
-    first_genre = user_pref_str.split(',')[0].strip()
-    candidate_books = Book.objects.filter(category__name__icontains=first_genre).order_by('?')[:20]
+    # 2. 성별/연령대 매핑 (API 코드 명세 반영)
+    gender_code = '0' if user.gender == 'M' else '1' if user.gender == 'F' else '2'
+    age_map = {'10s': '14', '20s': '20', '30s': '30', '40s': '40', '50s': '50', '60s+': '60'}
+    age_code = age_map.get(user.age_group, '20')
+
+    params = {
+        "authKey": auth_key,
+        "startDt": start_dt,
+        "endDt": end_dt,
+        "gender": gender_code,
+        "age": age_code,
+        "pageSize": 10,
+        "format": "json"
+    }
+
+    try:
+        response = requests.get(url, params=params)
+        docs = response.json().get('response', {}).get('docs', [])
+        # API 응답에서 도서명(bookname) 리스트 추출
+        return [d.get('doc', {}).get('bookname') for d in docs]
+    except:
+        return []
+
+def generate_ai_recommendations(user, force_update=False):
+    """사용자 프로필 + 실시간 인기 통계 + 커뮤니티 활동 기반 AI 추천 생성"""
+
+    # 이미 추천 데이터가 있고 강제 업데이트가 아니면 그냥 리턴
+    if not force_update and Recommendation.objects.filter(user=user).exists():
+        return True
+    
+    if not settings.OPENAI_API_KEY: return False
+    client = OpenAI(api_key=settings.OPENAI_API_KEY, base_url="https://gms.ssafy.io/gmsapi/api.openai.com/v1")
+
+    # 1. 커뮤니티 활동 분석 (댓글 5개 이상 시 카테고리 추출)
+    user_comments = ChatMessage.objects.filter(user=user).select_related('book__category')
+    active_interests = ""
+    if user_comments.count() >= 5:
+        top_cats = user_comments.values('book__category__name').annotate(c=Count('book__category')).order_by('-c')[:2]
+        active_interests = f"최근 관심 카테고리: {', '.join([c['book__category__name'] for c in top_cats])}"
+
+    # 2. 도서관 인기 대출 통계 확보 (최근 3개월 데이터)
+    stat_popular_books = get_popular_books_by_user(user)
+    stat_context = f"현재 해당 연령대/성별 인기 도서: {', '.join(stat_popular_books)}"
+
+    # 3. 추천 후보 도서 추출 (다중 장르 대응)
+    genres = [g.strip() for g in user.preferred_genres.split(',') if g.strip()]
+    
+    query = Q()
+    for genre in genres:
+        query |= Q(category__name__icontains=genre)
+    
+    # 선호 장르가 없거나 검색 결과가 없을 경우를 대비해 베스트셀러/소설 등 기본 후보 확보
+    candidate_books = Book.objects.filter(query).order_by('?')[:30]
     
     if not candidate_books.exists():
-        candidate_books = Book.objects.order_by('?')[:20]
+        candidate_books = Book.objects.all().order_by('-loan_count')[:30]
 
     book_list_str = "\n".join([
-        f"- ID: {b.id} | 제목: {b.title} | 저자: {b.author} | 줄거리: {b.description[:150]}..." 
+        f"- ID:{b.id} | 제목:{b.title} | 카테고리:{b.category.name} | 줄거리:{b.description[:100]}" 
         for b in candidate_books
     ])
 
+    # 4. 고도화된 프롬프트 구성
     prompt = f"""
-    사용자 정보: {user_info}, 선호 장르: {user_pref_str}
-    위 사용자의 취향에 맞춰 아래 도서 목록 중 가장 잘 어울리는 책 5권을 선정해줘.
+    사용자 정보: {user.get_age_group_display()} {user.get_gender_display()}, 선호: {user.preferred_genres}
+    활동 분석: {active_interests if active_interests else "신규 유저"}
+    외부 통계: {stat_context}
+    
+    위 목록 중 유저에게 어울리는 5권을 선정해줘. 
+    조건:
+    1. 사용자의 여러 선호 카테고리가 골고루 포함되게 할 것.
+    2. 이유는 도서의 줄거리 기반으로 30자 이내로 작성하고, 영화 포스터 카피처럼 강렬한 느낌표 문장으로 작성할 것.
+    3. 반드시 아래 JSON 형식으로만 출력할 것. 다른 설명은 생략할 것.
     [도서 목록]
     {book_list_str}
     
-    형식은 반드시 순수 JSON만 보내줘. 
-    [
-        {{"book_id": 책ID, "reason": "줄거리를 참고한 구체적인 추천 이유"}}
-    ]
+    반드시 순수 JSON 형식으로만 응답할 것: [{{ "book_id": ID, "reason": "이유" }}]
     """
 
     try:
         response = client.chat.completions.create(
-            model="gpt-4o-mini", 
-            messages=[
-                {"role": "developer", "content": "You are a helpful book recommendation assistant."},
-                {"role": "user", "content": prompt}
-            ],
-            temperature=0.7
+            model="gpt-4o-mini",
+            messages=[{"role": "developer", "content": "당신은 트렌디한 감각을 가진 전문 사서입니다."}, {"role": "user", "content": prompt}],
+            temperature=0.8
         )
-        
         content = response.choices[0].message.content.strip()
-        if content.startswith("```"):
-            content = content.replace("```json", "").replace("```", "").strip()
+        # 마크다운 태그 제거 로직
+        if "```" in content:
+            content = content.split("```")[1].replace("json", "").strip()
         
         recommendations = json.loads(content)
         
-        for rec in recommendations:
-            try:
-                book = Book.objects.get(id=rec['book_id'])
-                Recommendation.objects.update_or_create(
-                    user=user,
-                    book=book,
-                    defaults={'reason': rec['reason']}
-                )
-            except Book.DoesNotExist:
-                continue
-        
+        # 5. DB 업데이트 (트랜잭션 권장)
+        from django.db import transaction
+        with transaction.atomic():
+            Recommendation.objects.filter(user=user).delete()
+            for rec in recommendations[:5]: # 최대 5개 제한
+                book = Book.objects.filter(id=rec.get('book_id')).first()
+                if book:
+                    Recommendation.objects.create(
+                        user=user, 
+                        book=book, 
+                        reason=rec.get('reason')
+                    )
         return True
-
     except Exception as e:
-        print(f"❌ AI 추천 생성 중 오류: {e}")
+        print(f"❌ AI 오류: {e}")
         return False
+
     
 def import_all_data():
     """books.json 파일에서 카테고리, 도서관, 도서를 순차적으로 임포트"""
@@ -337,32 +392,75 @@ def update_libraries():
             print(f"Error region {region_code}: {e}")
     print(f"✅ {total_count}개 도서관 저장 완료")
 
-# 실시간 소장/대출 여부 조회 
-def get_realtime_library_status(isbn, lib_code):
-    """특정 도서관의 도서 실시간 상태 확인"""
+# 사용자 위치 정보 기본값 
+DEFAULT_LAT = 37.5012
+DEFAULT_LON = 127.0395
+
+def calculate_distance(lat1, lon1, lat2, lon2):
+    """두 지점 사이의 직선 거리를 km로 계산 (Haversine 공식)"""
+    if None in [lat1, lon1, lat2, lon2]:
+        return 0
+    radius = 6371  # 지구 반지름 (km)
+    dlat = math.radians(lat2 - lat1)
+    dlon = math.radians(lon2 - lon1)
+    a = math.sin(dlat/2) * math.sin(dlat/2) + math.cos(math.radians(lat1)) \
+        * math.cos(math.radians(lat2)) * math.sin(dlon/2) * math.sin(dlon/2)
+    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
+    return round(radius * c, 2)
+
+def get_library_full_status(isbn, libraries, user_lat, user_lon):
+    """
+    도서관 객체 리스트를 받아 실시간 상태 및 거리 정보를 포함한 데이터 반환
+    이 함수가 기존의 get_realtime_library_status를 대체합니다.
+    """
     auth_key = getattr(settings, 'LIBRARY_API_KEY', None)
     url = "http://data4library.kr/api/bookExist"
-    
-    # 해당 도서관의 이름을 DB에서 가져옴
-    library = Library.objects.filter(lib_code=lib_code).first()
-    lib_name = library.lib_name if library else "알 수 없는 도서관"
+    results = []
 
-    params = {
-        "authKey": auth_key,
-        "libCode": lib_code,
-        "isbn13": isbn,
-        "format": "json"
-    }
-    
-    try:
-        response = requests.get(url, params=params)
-        data = response.json()
-        result = data.get('response', {}).get('result', {})
-        
-        return {
-            "libName": lib_name,
-            "hasBook": result.get('hasBook', 'N'),
-            "loanAvailable": result.get('loanAvailable', 'N')
+    for lib in libraries:
+        # 실시간 API 호출 (소장 여부 확인)
+        params = {
+            "authKey": auth_key,
+            "libCode": lib.lib_code,
+            "isbn13": isbn,
+            "format": "json"
         }
-    except Exception:
-        return {"libName": lib_name, "hasBook": "N", "loanAvailable": "N"}
+        
+        has_book = "N"
+        loan_available = "N"
+        
+        try:
+            # 타임아웃을 짧게 설정하여 상세페이지 로딩 지연 방지
+            resp = requests.get(url, params=params, timeout=1.5).json()
+            exist_res = resp.get('response', {}).get('result', {})
+            has_book = exist_res.get('hasBook', 'N')
+            loan_available = exist_res.get('loanAvailable', 'N')
+        except:
+            pass # 실패 시 기본값 N 유지
+
+        results.append({
+            "libCode": lib.lib_code,
+            "libName": lib.lib_name,
+            "address": lib.address,
+            "tel": lib.tel,
+            "homepage": lib.homepage,
+            "hasBook": has_book,
+            "loanAvailable": loan_available,
+            "distance": calculate_distance(user_lat, user_lon, lib.latitude, lib.longitude)
+        })
+    return results
+
+def get_nearby_libraries_list(user_lat, user_lon, exclude_codes, limit=5):
+    """
+    관심 도서관을 제외한 주변 도서관 객체 리스트 반환
+    """
+    # 관심 도서관 제외하고 필터링
+    all_other_libs = Library.objects.exclude(lib_code__in=exclude_codes)
+    
+    # 거리순 정렬 (단순 위경도 차이의 제곱합 사용 - 정렬용으로는 충분)
+    nearby_libs = sorted(
+        all_other_libs,
+        key=lambda l: (l.latitude - user_lat)**2 + (l.longitude - user_lon)**2
+    )
+    
+    return nearby_libs[:limit]

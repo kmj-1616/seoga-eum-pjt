@@ -1,3 +1,4 @@
+import threading    # AI 추천 생성을 백그라운드에서 처리 
 from rest_framework import status, generics
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -5,6 +6,10 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from django.contrib.auth.models import update_last_login
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth import authenticate
+
+# books 앱의 utils에서 AI 추천 함수 임포트
+from books.utils import generate_ai_recommendations
+
 from .serializers import (
     UserRegistrationSerializer, 
     UserSerializer, 
@@ -21,6 +26,9 @@ class UserRegistrationView(generics.CreateAPIView):
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
         update_last_login(None, user)
+
+        # 회원가입 성공 후 백그라운드에서 AI 추천 생성
+        threading.Thread(target=generate_ai_recommendations, args=(user, True)).start()
 
         # JWT 토큰 생성
         refresh = RefreshToken.for_user(user)
@@ -90,23 +98,26 @@ class UserProfileUpdateView(generics.UpdateAPIView):
         return self.request.user
 
     def update(self, request, *args, **kwargs):
-        partial = kwargs.pop('partial', False)
-        instance = self.get_object()
-        serializer = self.get_serializer(
-            instance, 
-            data=request.data, 
-            partial=partial
-        )
-        serializer.is_valid(raise_exception=True)
-        self.perform_update(serializer)
+            partial = kwargs.pop('partial', False)
+            instance = self.get_object()
+            serializer = self.get_serializer(
+                instance, 
+                data=request.data, 
+                partial=partial
+            )
+            serializer.is_valid(raise_exception=True)
+            user = serializer.save() # 수정된 유저 객체 저장
 
-        return Response({
-            'message': '프로필이 수정되었습니다.',
-            'user': UserSerializer(instance).data
-        })
+            # 프로필 정보(나이, 성별, 선호장르 등)가 변경되었으므로 추천 강제 갱신
+            threading.Thread(target=generate_ai_recommendations, args=(user, True)).start()
+
+            return Response({
+                'message': '프로필이 수정되었습니다.',
+                'user': UserSerializer(user).data
+            })
 
 
-# 5. 로그아웃 API (선택사항 - JWT는 클라이언트에서 토큰 삭제로 처리 가능)
+# 5. 로그아웃 API 
 class UserLogoutView(APIView):
     permission_classes = [IsAuthenticated]
 
