@@ -13,16 +13,19 @@ class RecommendationView(APIView):
 
     def get(self, request):
         user = request.user
+        # 최신 순으로 5개 가져오기
         recommendations = Recommendation.objects.filter(user=user).order_by('-created_at')[:5]
         
+        # 1. 추천 데이터가 아예 없는 경우에만 실시간 생성 (force_update=False)
         if not recommendations.exists():
-            success = generate_ai_recommendations(user)
+            success = generate_ai_recommendations(user, force_update=False)
             if success:
                 recommendations = Recommendation.objects.filter(user=user).order_by('-created_at')[:5]
             else:
                 return Response({"error": "AI 추천을 생성할 수 없습니다."}, status=500)
         
-        serializer = RecommendationSerializer(recommendations, many=True)
+        # 2. 결과 반환 
+        serializer = RecommendationSerializer(recommendations, many=True, context={'request': request})
         return Response(serializer.data)
 
 # 2. 도서 액션 뷰 (희망도서/소장도서)
@@ -114,16 +117,20 @@ class CategoryListView(APIView):
         categories = Category.objects.all()
         serializer = CategorySerializer(categories, many=True)
         return Response(serializer.data)
-    
+
 class LibraryListView(generics.ListAPIView):
-    """전국 공공도서관 목록 조회 API"""
-    queryset = Library.objects.all().order_by('lib_name')
+    """전국 도서관 검색 및 목록 조회 API"""
     serializer_class = LibrarySerializer
 
-    # 지역별 필터링이 필요할 경우를 대비
     def get_queryset(self):
-        queryset = super().get_queryset()
+        queryset = Library.objects.all().order_by('lib_name')
+        # q: 도서관명 검색, region: 지역 검색
+        query = self.request.query_params.get('q')
         region = self.request.query_params.get('region')
+
+        if query:
+            queryset = queryset.filter(lib_name__icontains=query)
         if region:
             queryset = queryset.filter(address__contains=region)
-        return queryset
+            
+        return queryset[:50] # 검색 결과는 상위 50개만 

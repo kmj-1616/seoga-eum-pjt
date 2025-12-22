@@ -55,6 +55,10 @@ class User(AbstractUser):
             validators=[MinLengthValidator(2, message="최소 하나 이상의 카테고리를 선택해야 합니다.")],
             verbose_name="선호 카테고리"
         )
+    
+    # 사용자의 위치 정보 
+    latitude = models.FloatField(null=True, blank=True, verbose_name="위도")
+    longitude = models.FloatField(null=True, blank=True, verbose_name="경도")
 
     objects = UserManager()
 

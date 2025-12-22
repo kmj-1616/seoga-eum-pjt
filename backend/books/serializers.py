@@ -32,6 +32,7 @@ class LibrarySerializer(serializers.ModelSerializer):
 
 # 4. 실시간 대출 현황용 (API 응답 규격)
 class LibraryStatusSerializer(serializers.Serializer):
+    libCode = serializers.CharField()
     libName = serializers.CharField(allow_null=True)       # 도서관 이름
     hasBook = serializers.CharField()       # 소장 여부 (Y/N)
     loanAvailable = serializers.CharField() # 대출 가능 여부 (Y/N)
@@ -42,9 +43,8 @@ class BookSerializer(serializers.ModelSerializer):
     is_owned = serializers.SerializerMethodField()
     category_name = serializers.CharField(source='category.name', read_only=True)
     chat_count = serializers.SerializerMethodField()
-    ai_recommendation_reason = serializers.SerializerMethodField()
     
-    # 실시간 대출 가능 여부 필드 추가
+    # 실시간 대출 가능 여부 필드 (관심도서관 + 주변도서관 합친 5개 정보)
     library_status = serializers.SerializerMethodField()
 
     class Meta:
@@ -52,8 +52,7 @@ class BookSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'title', 'author', 'publisher', 'pub_year', 'isbn', 
             'description', 'cover_url', 'category', 'category_name', 'loan_count',
-            'is_wish', 'is_owned', 'chat_count', 'ai_recommendation_reason',
-            'library_status'
+            'is_wish', 'is_owned', 'chat_count', 'library_status' 
         ]
     
     def get_is_wish(self, obj):
@@ -71,22 +70,38 @@ class BookSerializer(serializers.ModelSerializer):
     def get_chat_count(self, obj):
         return ChatMessage.objects.filter(book=obj).count()
     
-    def get_ai_recommendation_reason(self, obj):
-        user = self.context.get('request').user
-        if user and user.is_authenticated:
-            recommendation = Recommendation.objects.filter(user=user, book=obj).first()
-            if recommendation:
-                return recommendation.reason
-            return "사용자님의 취향을 분석 중입니다."
-        return None
 
-    # 실시간 데이터 가져오기 로직
     def get_library_status(self, obj):
         user = self.context.get('request').user
-        # 유저가 로그인했고, 관심 도서관(favorite_libraries) 정보가 있을 때만 호출
+        
+        # 1. 유저 위치 설정 (로그인 안 했거나 위치 정보 없으면 싸피 캠퍼스)
+        u_lat = getattr(user, 'latitude', None) or 37.5012
+        u_lon = getattr(user, 'longitude', None) or 127.0395
+        
+        # 2. 우선순위 1: 자주 이용하는 도서관 (관심 도서관)
+        fav_libs = []
+        fav_names = [] 
+        
         if user and user.is_authenticated and user.favorite_libraries:
-            from .utils import get_realtime_library_status
-            # 유저의 도서관 코드와 현재 책의 ISBN으로 조회
-            status_data = get_realtime_library_status(obj.isbn, user.favorite_libraries)
-            return LibraryStatusSerializer(status_data).data
-        return None
+            fav_names = [n.strip() for n in user.favorite_libraries.split(',') if n.strip()]
+            
+            # lib_name으로 DB 조회
+            fav_libs = list(Library.objects.filter(lib_name__in=fav_names))
+
+        # 2. 부족한 만큼 주변 도서관 추가 (이미 찾은 관심 도서관은 제외)
+        needed_count = 5 - len(fav_libs)
+        nearby_libs = []
+        if needed_count > 0:
+            # 이미 찾은 관심 도서관의 코드를 제외 리스트로 만듦
+            excluded_codes = [l.lib_code for l in fav_libs]
+            
+            all_other_libs = Library.objects.exclude(lib_code__in=excluded_codes)
+            nearby_libs = sorted(
+                all_other_libs,
+                key=lambda l: (l.latitude - u_lat)**2 + (l.longitude - u_lon)**2
+            )[:needed_count]
+
+        # 3. 데이터 통합 및 실시간 조회
+        final_lib_list = fav_libs + nearby_libs
+        from .utils import get_library_full_status
+        return get_library_full_status(obj.isbn, final_lib_list, u_lat, u_lon)
