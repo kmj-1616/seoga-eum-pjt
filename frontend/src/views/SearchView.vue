@@ -88,7 +88,7 @@ const loading = ref(false)
 // 1. DB에서 카테고리 목록(books_category) 가져오기
 const fetchCategories = async () => {
   try {
-    const response = await axios.get('http://127.0.0.1:8000/api/v1/book/categories/')
+    const response = await axios.get('http://127.0.0.1:8000/api/v1/books/categories/')
     // DRF 응답 구조에 따라 데이터를 categories에 저장
     const data = response.data.results || response.data
     categories.value = [{ id: null, name: '전체' }, ...data]
@@ -108,7 +108,7 @@ const handleSearch = async () => {
       sort: sortBy.value
     }
     
-    const response = await axios.get('http://127.0.0.1:8000/api/v1/books/', { params })
+    const response = await axios.get('http://127.0.0.1:8000/api/v1/book/', { params })
     
     // 백엔드 페이지네이션이 있다면 results 필드 접근, 없다면 data 전체 사용
     const finalData = response.data.results || response.data
