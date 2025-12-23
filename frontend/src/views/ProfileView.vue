@@ -1,5 +1,24 @@
 <template>
   <div class="profile-container" v-if="userInfo">
+    <div v-if="isEditModalOpen" class="modal-overlay">
+      <div class="modal-content">
+        <h3>프로필 정보 수정</h3>
+        <div class="edit-form-body">
+          <div class="input-group">
+            <label>닉네임</label>
+            <input v-model="editForm.nickname" type="text" placeholder="변경할 닉네임">
+          </div>
+          <div class="input-group">
+            <label>주소</label>
+            <input v-model="editForm.address" type="text" placeholder="변경할 주소">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn-cancel" @click="isEditModalOpen = false">취소</button>
+          <button class="btn-save" @click="handleProfileUpdate">저장</button>
+        </div>
+      </div>
+    </div>
     <header class="profile-header">
       <h1 class="main-title">마이페이지</h1>
       <p class="sub-title">나의 독서 활동과 정보를 관리하세요</p>
@@ -12,7 +31,7 @@
       <div class="user-content">
         <div class="user-top-line">
           <h2 class="user-name">{{ userInfo.nickname || userInfo.username }}</h2>
-          <button class="edit-info-btn">📝 정보 수정</button>
+          <button class="edit-info-btn" @click="openEditModal">📝 정보 수정</button>
         </div>
         <p class="user-email">{{ userInfo.email }}</p>
         
@@ -66,12 +85,12 @@
   </div>
 
   <div v-else class="loading-state">
-    <p>사용자 정보를 불러오는 중입니다...</p>
+    <p>신분 확인이 필요합니다.</p>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, reactive } from 'vue'
 import axios from 'axios'
 import { useRouter } from 'vue-router'
 
@@ -128,6 +147,34 @@ onMounted(async () => {
   await fetchUserProfile()
   await fetchMyOwnedBooks()
 })
+const isEditModalOpen = ref(false)
+const editForm = reactive({
+  nickname: '',
+  address: ''
+})
+
+// 모달 열 때 현재 데이터 주입
+const openEditModal = () => {
+  editForm.nickname = userInfo.value.nickname || ''
+  editForm.address = userInfo.value.address || ''
+  isEditModalOpen.value = true
+}
+
+// 실제 DB 수정 요청 (PATCH)
+const handleProfileUpdate = async () => {
+  const token = localStorage.getItem('token') || localStorage.getItem('access') || localStorage.getItem('access_token');
+  try {
+    const response = await axios.patch('http://127.0.0.1:8000/api/v1/users/profile/update/', editForm, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    userInfo.value = response.data; // 서버에서 받은 최신 데이터로 화면 갱신
+    isEditModalOpen.value = false;
+    alert("정보가 성공적으로 수정되었습니다.");
+  } catch (error) {
+    console.error("수정 실패:", error.response);
+    alert("수정 중 오류가 발생했습니다.");
+  }
+}
 </script>
 
 <style scoped>
@@ -265,6 +312,25 @@ onMounted(async () => {
 .empty-shelf, .loading-state {
   text-align: center;
   padding: 80px 0;
-  color: #adb5bd;
+  color: #81532e;
+  font-size: 40px;
 }
+/* 모달 레이아웃 */
+.modal-overlay {
+  position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+  background: rgba(0, 0, 0, 0.5); display: flex; justify-content: center; align-items: center; z-index: 999;
+}
+.modal-content {
+  background: #fff; padding: 30px; border-radius: 15px; width: 100%; max-width: 400px;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+}
+.edit-form-body .input-group { margin-bottom: 15px; }
+.input-group label { display: block; margin-bottom: 5px; font-weight: bold; color: #333; }
+.input-group input {
+  width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box;
+}
+.modal-footer { display: flex; gap: 10px; margin-top: 20px; }
+.modal-footer button { flex: 1; padding: 12px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; }
+.btn-save { background: #111; color: #fff; }
+.btn-cancel { background: #eee; color: #333; }
 </style>
