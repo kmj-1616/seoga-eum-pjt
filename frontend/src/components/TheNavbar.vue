@@ -65,6 +65,8 @@ export default {
       localStorage.removeItem('refresh_token');
       localStorage.removeItem('user_nickname');
       this.isLoggedIn = false;
+      this.userNickname = '';
+      window.dispatchEvent(new CustomEvent('auth-change'));
       alert("로그아웃 되었습니다.");
       this.$router.push('/');
     },
