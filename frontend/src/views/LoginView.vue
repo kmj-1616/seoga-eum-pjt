@@ -50,18 +50,40 @@ export default {
       try {
         const response = await axios.post('http://127.0.0.1:8000/api/v1/users/login/', this.loginData);
         
-        // 1. 토큰 저장
+        // 1. 기본 인증 정보 저장
         localStorage.setItem('access_token', response.data.tokens.access);
         localStorage.setItem('refresh_token', response.data.tokens.refresh);
         localStorage.setItem('user_nickname', response.data.user.nickname);
 
-        // 2. 리다이렉트 경로 결정
-        // 쿼리에 redirect 정보가 있으면 거기로 가고, 없으면 홈('/')으로 보냅니다.
-        const redirectPath = this.$route.query.redirect || '/';
+        // 2. 위치 정보 처리 (최초 로그인 시 권한 획득)
+        const DEFAULT_LAT = 37.5012;
+        const DEFAULT_LON = 127.0395;
 
-        // 3. 페이지 이동 및 상태 반영
-        // 상태 반영을 위해 네비바가 Pinia 등을 안 쓴다면 window.location.href가 가장 확실합니다.
-        // 만약 Pinia/Vuex를 사용 중이라면 this.$router.push(redirectPath)를 쓰세요.
+        if (navigator.geolocation) {
+          // 권한 요청 및 위치 획득 -> localStorage에 저장해서 요청할 때마다 실시간 좌표를 보냄 
+          await new Promise((resolve) => {
+            navigator.geolocation.getCurrentPosition(
+              (pos) => {
+                localStorage.setItem('user_lat', pos.coords.latitude);
+                localStorage.setItem('user_lon', pos.coords.longitude);
+                resolve();
+              },
+              (err) => {
+                // 거부하거나 오류 시 기본값(역삼) 저장
+                localStorage.setItem('user_lat', DEFAULT_LAT);
+                localStorage.setItem('user_lon', DEFAULT_LON);
+                resolve();
+              },
+              { timeout: 5000 } // 너무 오래 대기하지 않도록 3초 설정
+            );
+          });
+        } else {
+          localStorage.setItem('user_lat', DEFAULT_LAT);
+          localStorage.setItem('user_lon', DEFAULT_LON);
+        }
+
+        // 3. 페이지 이동
+        const redirectPath = this.$route.query.redirect || '/';
         window.location.href = redirectPath; 
 
       } catch (error) {
