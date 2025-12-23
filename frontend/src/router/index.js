@@ -34,7 +34,12 @@ const router = createRouter({
     path: '/profile',
     name: 'profile',
     component: () => import('../views/ProfileView.vue')
-    }
+    },
+    {
+    path: '/community/:isbn', 
+    name: 'community',
+    component: () => import('../views/CommunityView.vue'),
+  }
   ]
 })
 

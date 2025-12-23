@@ -55,6 +55,7 @@ export default {
         localStorage.setItem('access_token', response.data.tokens.access);
         localStorage.setItem('refresh_token', response.data.tokens.refresh);
         localStorage.setItem('user_nickname', response.data.user.nickname);
+        localStorage.setItem('user_id', response.data.user.id);
 
         // 2. 위치 정보 처리 (최초 로그인 시 권한 획득)
         const DEFAULT_LAT = 37.5012;
