@@ -1,14 +1,12 @@
 <template>
   <div class="home-container">
     <section class="hero-banner">
-      <div class="hero-overlay"></div>
       <div class="hero-content">
-        <h2 class="hero-top-text">과거와 현재를 잇는 지혜의 서가</h2>
-        <p class="hero-subtitle">당신만을 위한 고유한 책의 숨결을 느껴보세요</p>
-        
+        <h2 class="hero-top-text">서책으로 사람을 잇다, 서가이음</h2>
+        <p class="hero-subtitle">함께 나누는 문장부터 손때 묻은 서책의 새로운 인연까지</p>
         <div class="search-bar">
-          <input type="text" placeholder="찾으시는 서책의 이름을 입력하십시오..." class="search-input">
-          <button class="search-button">
+          <input v-model="searchQuery" @keyup.enter="handleSearch" type="text" placeholder="찾으시는 서책의 이름을 입력하십시오..." class="search-input">
+          <button @click="handleSearch" class="search-button">
             <img src="@/assets/search-button.jpg" alt="검색" class="search-button-img" />
           </button>
         </div>
@@ -21,18 +19,22 @@
         <h3 class="section-title">오늘의 추천 서책</h3>
         <span class="decoration-line"></span>
       </div>
-      <p class="section-desc">사용자의 취향에 맞춰 선별한 서적들입니다.</p>
-
+      
       <div v-if="isLoggedIn" class="recommend-content">
-        <div v-if="recommendations.length > 0" class="book-grid">
-          <div v-for="rec in recommendations" :key="rec.id" class="book-card">
+        <p class="section-desc">
+          <span class="nickname-highlight">{{ userNickname }}</span> 님의 취향과 활동을 분석한 추천 서책입니다.
+        </p>
+        <div v-if="recommendations.length > 0" class="book-grid-fixed">
+          <div v-for="rec in recommendations" :key="rec.id" class="book-card" @click="goToDetail(rec.book.isbn)">
             <div class="book-cover-wrapper">
               <img :src="rec.book.cover_url" alt="서책 표지" class="book-cover">
             </div>
             <div class="book-info">
               <h4 class="book-title">{{ rec.book.title }}</h4>
               <p class="book-author">{{ rec.book.author }}</p>
-              <p class="ai-reason">" {{ rec.reason }} "</p>
+              <div class="ai-reason-container">
+                <p class="ai-reason">" {{ rec.reason }} "</p>
+              </div>
             </div>
           </div>
         </div>
@@ -40,10 +42,28 @@
       </div>
 
       <div v-else class="login-prompt-card">
-        <p class="prompt-text">로그인하시면 AI가 분석한 <br> 당신만을 위한 추천 서책을 만나보실 수 있습니다.</p>
-        <div class="prompt-btns">
-          <router-link to="/login" class="btn-login">로그인</router-link>
-          <router-link to="/signup" class="btn-signup">회원가입</router-link>
+        <p class="prompt-text">서가에 입장하고 AI가 당신만을 위해 추천한 서책을 만나보세요.</p>
+        <button @click="router.push('/login')" class="btn-classic">서가 입장하기</button>
+      </div>
+    </section>
+
+    <section class="recommend-section">
+      <div class="section-header">
+        <span class="decoration-line"></span>
+        <h3 class="section-title">지금 가장 인기 있는 서책</h3>
+        <span class="decoration-line"></span>
+      </div>
+      <div class="book-grid-scroll" ref="topGrid">
+        <div v-for="(book, index) in topBooks" :key="book.id" class="book-card" @click="goToDetail(book.isbn)">
+          <div class="rank-badge">{{ index + 1 }}</div>
+          <div class="book-cover-wrapper">
+            <img :src="book.cover_url" alt="서책 표지" class="book-cover">
+          </div>
+          <div class="book-info">
+            <h4 class="book-title">{{ book.title }}</h4>
+            <p class="book-author">{{ book.author }}</p>
+            <p class="loan-info">누적 대출 {{ book.loan_count.toLocaleString() }}회</p>
+          </div>
         </div>
       </div>
     </section>
@@ -52,74 +72,105 @@
 
 <script setup>
 import { ref, onMounted, onUnmounted, watch } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import axios from 'axios'
 
+const router = useRouter()
 const route = useRoute()
 const recommendations = ref([])
+const topBooks = ref([])
 const isLoggedIn = ref(false)
+const searchQuery = ref('')
+const topGrid = ref(null)
+const userNickname = ref('')
 
-const checkStatusAndFetch = () => {
+// 1. 자동 슬라이드 로직 정의 (이 부분이 빠져서 에러가 났었습니다)
+const startAutoScroll = () => {
+  return setInterval(() => {
+    if (topGrid.value) {
+      const el = topGrid.value
+      const maxScroll = el.scrollWidth - el.clientWidth
+      
+      // 스크롤이 끝에 도달하면 처음으로, 아니면 250px씩 이동
+      if (el.scrollLeft >= maxScroll - 10) {
+        el.scrollTo({ left: 0, behavior: 'smooth' })
+      } else {
+        el.scrollBy({ left: 250, behavior: 'smooth' })
+      }
+    }
+  }, 3000)
+}
+
+let topInterval // 인터벌 ID 보관용 변수
+
+// 2. 데이터를 가져오는 핵심 함수
+const fetchData = async () => {
   const token = localStorage.getItem('access_token')
-  isLoggedIn.value = !!token
-  
-  if (isLoggedIn.value) {
-    getRecommendations(token)
+  const status = !!token
+  isLoggedIn.value = status 
+
+  if (status) {
+    userNickname.value = localStorage.getItem('user_nickname') || '당신'
   } else {
+    userNickname.value = ''
     recommendations.value = [] 
+  }
+
+  try {
+    const topRes = await axios.get('http://127.0.0.1:8000/api/v1/books/', { params: { sort: 'popular' } })
+    topBooks.value = topRes.data.slice(0, 10)
+
+    if (status) {
+      const recRes = await axios.get('http://127.0.0.1:8000/api/v1/books/recommendations/', {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      recommendations.value = recRes.data
+    }
+  } catch (err) {
+    console.error("데이터 로드 실패:", err)
   }
 }
 
-const getRecommendations = function (token) {
-  axios({
-    method: 'get',
-    url: 'http://127.0.0.1:8000/api/v1/books/recommendations/',
-    headers: { Authorization: `Bearer ${token}` }
-  })
-    .then(res => { recommendations.value = res.data })
-    .catch(err => { 
-      if (err.response?.status === 401) {
-        isLoggedIn.value = false
-        recommendations.value = []
-      }
-    })
-}
-
-const handleAuthChange = () => {
-  checkStatusAndFetch()
-}
-
-onMounted(() => {
-  checkStatusAndFetch()
+// 3. 생명주기 관리
+onMounted(async () => {
+  await fetchData()
+  topInterval = startAutoScroll() // 이제 정상적으로 함수를 호출합니다
   
-  window.addEventListener('auth-change', handleAuthChange)
-  window.addEventListener('storage', handleAuthChange)
+  // 네브바의 CustomEvent('auth-change')를 수신
+  window.addEventListener('auth-change', fetchData)
 })
 
 onUnmounted(() => {
-  window.removeEventListener('auth-change', handleAuthChange)
-  window.removeEventListener('storage', handleAuthChange)
+  if (topInterval) clearInterval(topInterval)
+  window.removeEventListener('auth-change', fetchData)
 })
 
-watch(() => route.path, () => {
-  checkStatusAndFetch()
-})
+// 4. 이동 및 검색 로직
+const goToDetail = (isbn) => {
+  if (!isbn) return;
+  router.push({ name: 'bookdetail', params: { isbn: String(isbn) } });
+}
+
+const handleSearch = () => {
+  if (!searchQuery.value.trim()) return
+  router.push({ name: 'SearchView', query: { q: searchQuery.value } })
+}
 </script>
 
 <style scoped>
-/* 구글에서 폰트 불러오기 */
 @import url('https://fonts.googleapis.com/css2?family=Hahmlet:wght@400;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Nanum+Myeongjo:wght@400;700&display=swap');
+
 .home-container {
   font-family: 'Nanum Myeongjo', serif;
   width: 100%;
-  padding: 0;
   background-color: #fdfaf5;
   min-height: 100vh;
 }
 
+/* 히어로 배너 유지 */
 .hero-banner {
   padding-bottom: 60px;
-  position: relative;
   background-color: #4a3423; 
   background-image: url('https://www.toptal.com/designers/subtlepatterns/uploads/paper.png'); 
   background-blend-mode: overlay;
@@ -131,253 +182,115 @@ watch(() => route.path, () => {
   text-align: center;
   border-bottom: 4px solid #81532e;
 }
-
-.hero-content {
-  position: relative;
-  z-index: 2;
-}
-
-.hero-top-text {
-  font-family: 'Nanum Myeongjo', serif;
-  font-size: 50px;
-  font-weight: 400;
-  letter-spacing: 5px;
-  margin-bottom: 20px;
-  color: #F5DEB3;
-}
-
-.hero-subtitle {
-  font-family: 'Nanum Myeongjo', serif;
-  font-size: 30px;
-  margin-bottom: 40px;
-  opacity: 1.2;
-  font-weight: 300;
-}
+.hero-top-text { font-size: 50px; letter-spacing: 5px; margin-bottom: 20px; color: #F5DEB3; }
+.hero-subtitle { font-size: 30px; margin-bottom: 40px; font-weight: 300; }
 
 .search-bar {
-  font-family: 'Nanum Myeongjo', serif;
   display: flex;
   background-color: rgba(255, 255, 255, 0.95);
   border: 2px solid #81532e;
-  border-radius: 4px;
-  width: 650px;       
-  height: 60px;     
-  margin: 0 auto;
-  overflow: hidden;
+  width: 650px; height: 60px; margin: 0 auto;
   box-shadow: 5px 5px 15px rgba(0,0,0,0.2);
 }
+.search-input { flex: 1; padding: 15px 20px; border: none; background: transparent; font-size: 16px; outline: none; }
+.search-button { background-color: #ffffff; border: none; padding: 0 25px; cursor: pointer; }
+.search-button-img { width: 24px; height: 24px; object-fit: fill; }
 
-.search-input {
-  flex: 1;
-  padding: 15px 20px;
-  border: none;
-  background: transparent;
-  font-size: 16px;
-  outline: none;
-  color: #4a3423;
-}
+/* 레이아웃 디자인 */
+.recommend-section { max-width: 1200px; margin: 60px auto; text-align: center; }
+.section-header { display: flex; align-items: center; justify-content: center; gap: 20px; margin-bottom: 10px; }
+.decoration-line { height: 1px; width: 50px; background-color: #81532e; }
+.section-title { font-size: 34px; color: #4a3423; font-weight: 700; }
+.section-desc { color: #967979; font-size: 24px; margin-bottom: 30px; }
 
-.search-button {
-  background-color: #ffffff;
-  border: none;
-  padding: 0 25px;
-  cursor: pointer;
+/* 1. 고정 그리드 (추천 도서) */
+.book-grid-fixed {
   display: flex;
-  align-items: center;
-  transition: background 0.3s;
+  flex-wrap: nowrap; /* 줄바꿈 절대 금지 */
+  justify-content: space-between; /* 5개를 양 끝에 맞춰 균등 배분 */
+  gap: 15px; /* 간격을 살짝 좁힘 */
+  padding: 20px 0;
+  width: 100%; /* 부모 너비를 가득 채움 */
 }
 
-.search-button:hover {
-  background-color: #ffffff;
-}
-
-.search-button-img {
-  width: 24px;
-  height: 24px;
-  object-fit: fill;
-}
-
-.recommend-section {
-  max-width: 1200px;
-  margin: 10px auto;
-  padding: 0 20px;
-  text-align: center;
-}
-
-.section-header {
+/* 2. 자동 슬라이드 그리드 (인기 도서) */
+.book-grid-scroll {
   display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 20px;
-  margin-bottom: 4px;
-}
-
-.decoration-line {
-  height: 1px;
-  width: 50px;
-  background-color: #81532e;
-}
-
-.section-title {
-  font-size: 34px;
-  color: #4a3423;
-  font-weight: 700;
-}
-
-.section-desc {
-  color: #967979;
-  font-size: 26px;
-  margin-top: 0;
-  margin-bottom: 30px;
-}
-
-.search-input::placeholder {
-  font-family: 'Nanum Myeongjo', serif;
-  letter-spacing: -0.5px;
-  font-size: 18px;
-  font-weight: 700;
-}
-
-.recommend-content {
-  margin-top: 40px;
-}
-
-.book-grid {
-  display: flex;            /* Grid 대신 Flex 사용 */
   gap: 30px;
-  max-width: 1100px;        /* 전체 섹션 너비에 맞춰 조절 */
-  margin: 0 auto;
-  padding: 20px 10px;       /* 그림자가 잘리지 않게 여백 추가 */
-  
-  /* 가로 스크롤 핵심 설정 */
-  overflow-x: auto;         /* 가로 내용이 넘치면 자동 스크롤 생성 */
-  white-space: nowrap;      /* 내부 요소들이 줄바꿈되지 않게 설정 */
-  -webkit-overflow-scrolling: touch; /* 모바일에서 부드러운 스크롤 */
-  
-  /* 스크롤바 디자인 (선택 사항: 깔끔하게 숨기거나 얇게 만들기) */
-  scrollbar-width: thin; 
-  scrollbar-color: #d1b894 transparent;
+  overflow-x: auto; /* 자동 슬라이드 작동을 위해 필요 */
+  white-space: nowrap;
+  scroll-behavior: smooth;
+  scrollbar-width: none;
+  padding: 20px 10px;
 }
+.book-grid-scroll::-webkit-scrollbar { display: none; }
 
-/* 스크롤바 커스텀 (Chrome, Safari) */
-.book-grid::-webkit-scrollbar {
-  height: 6px;              /* 가로 스크롤바 높이 */
-}
-.book-grid::-webkit-scrollbar-thumb {
-  background-color: #d1b894; /* 스크롤바 색상 */
-  border-radius: 10px;
-}
-.book-grid::-webkit-scrollbar-track {
-  background: transparent;
-}
-
+/* 3. 카드 공통 스타일 */
 .book-card {
-  flex: 0 0 220px;          /* ★핵심: 카드가 줄어들지 않고 220px 너비를 유지함 */
+  flex: 0 0 calc(20% - 15px); 
+  min-width: 190px; 
+  display: flex;
+  flex-direction: column; 
   background: white;
   padding: 15px;
   border: 1px solid #eee;
   box-shadow: 0 4px 10px rgba(0,0,0,0.05);
   transition: transform 0.3s;
-  display: inline-block;    /* 가로 나열 유지 */
-  vertical-align: top;
+  cursor: pointer;
+  position: relative;
+  height: 400px; 
 }
-
-/* 텍스트가 너무 길어지면 말줄임표(...) 처리 (가로 스크롤 시 필수) */
-.book-title {
-  font-size: 16px;
-  color: #4a3423;
-  margin: 5px 0;
-  font-weight: 700;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.book-card:hover {
-  transform: translateY(-10px);
-}
+.book-card:hover { transform: translateY(-10px); }
 
 .book-cover-wrapper {
   width: 100%;
-  aspect-ratio: 2/3;
-  background-color: #f0f0f0;
-  margin-bottom: 15px;
+  height: 240px; 
+  margin-bottom: 12px;
   overflow: hidden;
-  box-shadow: 2px 2px 5px rgba(0,0,0,0.1);
 }
+.book-cover { width: 100%; height: 100%; object-fit: cover; }
 
-.book-cover {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
+.book-info {
+  flex-grow: 1; /* 남은 공간을 차지하여 하단 정렬 유지 */
+  display: flex;
+  flex-direction: column;
 }
 
 .book-title {
-  font-size: 16px;
-  color: #4a3423;
-  margin: 5px 0;
-  font-weight: 700;
+  font-size: 16px; font-weight: 700; color: #4a3423;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
+.book-author { font-size: 14px; color: #888; margin-bottom: 8px; }
 
-.book-author {
-  font-size: 14px;
-  color: #888;
-  margin-bottom: 10px;
+/* 추천 사유 공간 고정 (여기서 크기 들쭉날쭉 해결) */
+.ai-reason-container {
+  height: 50px; /* 사유가 들어갈 공간 고정 */
+  display: flex;
+  align-items: center;
 }
-
 .ai-reason {
   font-family: 'Hahmlet', serif;
-  font-size: 12px;
-  color: #81532e;
-  background: #fdfaf5;
-  padding: 8px;
-  border-radius: 4px;
-  /* 추천 사유가 길어도 한 줄 혹은 일정 높이를 유지하게 설정 */
-  white-space: normal;      /* 사유는 여러 줄로 보일 수 있게 함 */
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
+  font-size: 12px; color: #81532e; background: #fdfaf5;
+  padding: 5px 8px; border-radius: 4px;
+  width: 100%;
+  white-space: normal;
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden;
 }
 
-/* 비로그인 유도 카드 스타일 */
-.login-prompt-card {
-  background: #fff;
-  border: 1px solid #d1b894;
-  padding: 40px;
-  margin-top: 30px;
-  border-radius: 8px;
+.rank-badge {
+  position: absolute; top: -5px; left: -5px;
+  background: #81532e; color: #F5DEB3;
+  width: 30px; height: 30px; display: flex; align-items: center; justify-content: center;
+  font-weight: bold; z-index: 10;
 }
+.loan-info { font-size: 13px; color: #81532e; font-weight: bold; margin-top: auto; }
 
-.prompt-text {
-  font-size: 18px;
-  color: #4a3423;
-  margin-bottom: 25px;
-  line-height: 1.6;
+.btn-classic { background: #81532e; color: white; padding: 12px 25px; border: none; cursor: pointer; font-family: 'Hahmlet'; }
+.login-prompt-card { background: #fff; border: 1px solid #d1b894; padding: 40px; border-radius: 8px; }
+
+.nickname-highlight {
+  color: #81532e;     
+  font-weight: 700;   
+  font-size: 1.1em;   
 }
-
-.prompt-btns {
-  display: flex;
-  justify-content: center;
-  gap: 15px;
-}
-
-.btn-login, .btn-signup {
-  padding: 10px 25px;
-  border-radius: 4px;
-  text-decoration: none;
-  font-weight: 700;
-  transition: 0.3s;
-}
-
-.btn-login {
-  background-color: #81532e;
-  color: white;
-}
-
-.btn-signup {
-  border: 1px solid #81532e;
-  color: #81532e;
-}
-
-.btn-login:hover { background-color: #5d3b21; }
 </style>

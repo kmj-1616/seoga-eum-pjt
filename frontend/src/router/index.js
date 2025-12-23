@@ -22,7 +22,7 @@ const router = createRouter({
     },
     {
       path: '/book/:isbn',
-      name: 'BookDetail',
+      name: 'bookdetail',
       component: () => import('../views/BookDetailView.vue')
     },
     {
@@ -36,6 +36,20 @@ const router = createRouter({
     component: () => import('../views/ProfileView.vue')
     }
   ]
+})
+
+router.beforeEach((to, from, next) => {
+  const token = localStorage.getItem('access_token')
+  const isLoggedIn = !!token
+
+  // 1. 이미 로그인했는데 로그인(/login)이나 회원가입(/signup) 페이지로 가려는 경우
+  if (isLoggedIn && (to.name === 'login' || to.name === 'signup')) {
+    alert('이미 로그인된 상태입니다.')
+    next({ name: 'home' }) // 홈으로 튕겨냄
+  } 
+  else {
+    next() // 그 외의 경우는 정상 이동
+  }
 })
 
 export default router

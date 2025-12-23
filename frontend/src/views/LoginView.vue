@@ -82,6 +82,8 @@ export default {
           localStorage.setItem('user_lon', DEFAULT_LON);
         }
 
+        window.dispatchEvent(new Event('auth-change'));
+
         // 3. 페이지 이동
         const redirectPath = this.$route.query.redirect || '/';
         window.location.href = redirectPath; 
