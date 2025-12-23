@@ -14,7 +14,7 @@ class BookListSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Book
-        fields = ['id', 'title', 'author', 'cover_url', 'category', 'category_name', 'loan_count']
+        fields = ['id', 'isbn', 'title', 'author', 'cover_url', 'category', 'category_name', 'loan_count']
 
 # 2. AI 추천 목록 전용 (홈 화면의 추천 섹션에서 사용)
 class RecommendationSerializer(serializers.ModelSerializer):
