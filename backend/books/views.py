@@ -90,7 +90,7 @@ class BookListView(APIView):
             books = books.order_by('-pub_year', '-id')
 
         # 목록용 시리얼라이저 사용 (홈/검색 결과 화면)
-        serializer = BookListSerializer(books[:100], many=True)
+        serializer = BookListSerializer(books[:500], many=True)
         return Response(serializer.data)
 
 # 도서 정보 상세 조회 
