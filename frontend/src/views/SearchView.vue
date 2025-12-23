@@ -108,7 +108,7 @@ const handleSearch = async () => {
       sort: sortBy.value
     }
     
-    const response = await axios.get('http://127.0.0.1:8000/api/v1/book/', { params })
+    const response = await axios.get('http://127.0.0.1:8000/api/v1/books/', { params })
     
     // 백엔드 페이지네이션이 있다면 results 필드 접근, 없다면 data 전체 사용
     const finalData = response.data.results || response.data
@@ -127,7 +127,7 @@ const selectCategory = (catId) => {
 }
 
 const goToDetail = (isbn) => {
-  router.push(`/books/${isbn}`)
+  router.push(`/book/${isbn}`)
 }
 
 onMounted(async () => {
