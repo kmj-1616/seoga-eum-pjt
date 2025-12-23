@@ -1,33 +1,89 @@
 <template>
-  <div class="profile-container" v-if="userInfo">
+  <div class="profile-outer-container">
+    <div class="profile-container" v-if="userInfo">
     <div v-if="isEditModalOpen" class="modal-overlay">
-      <div class="modal-content">
-        <h3>프로필 정보 수정</h3>
-        <div class="edit-form-body">
+      <div class="signup-container modal-content">
+        <h2>명부 수정</h2>
+        <div class="signup-form">
           <div class="input-group">
-            <label>닉네임</label>
-            <input v-model="editForm.nickname" type="text" placeholder="변경할 닉네임">
+            <label>이메일 (전자우편)</label>
+            <input type="email" v-model="editForm.email" placeholder="example@email.com">
           </div>
+
           <div class="input-group">
-            <label>주소</label>
-            <input v-model="editForm.address" type="text" placeholder="변경할 주소">
+            <label>닉네임 (별호)</label>
+            <input type="text" v-model="editForm.nickname">
           </div>
-        </div>
-        <div class="modal-footer">
-          <button class="btn-cancel" @click="isEditModalOpen = false">취소</button>
-          <button class="btn-save" @click="handleProfileUpdate">저장</button>
+
+          <div class="input-group-row">
+            <div class="input-group half">
+              <label>연령대</label>
+              <select v-model="editForm.age_group">
+                <option value="10s">10대</option>
+                <option value="20s">20대</option>
+                <option value="30s">30대</option>
+                <option value="40s">40대</option>
+                <option value="50s">50대</option>
+                <option value="60s+">60대 이상</option>
+              </select>
+            </div>
+            <div class="input-group half">
+              <label>성별</label>
+              <div class="radio-group">
+                <label><input type="radio" v-model="editForm.gender" value="M"> 남성</label>
+                <label><input type="radio" v-model="editForm.gender" value="F"> 여성</label>
+                <label><input type="radio" v-model="editForm.gender" value="O"> 기타</label>
+              </div>
+            </div>
+          </div>
+
+          <div class="input-group">
+            <label>자주 이용하는 도서관 (최대 2개)</label>
+            <div class="library-search-box">
+              <input 
+                type="text" 
+                v-model="librarySearchQuery" 
+                @input="searchLibraries" 
+                placeholder="도서관 이름을 입력하세요..."
+                :disabled="selectedLibraries.length >= 2"
+              >
+              <ul v-if="librarySearchResults.length > 0" class="search-results">
+                <li v-for="lib in librarySearchResults" :key="lib.id" @click="selectLibrary(lib.lib_name)">
+                  {{ lib.lib_name }} <span class="lib-addr">{{ lib.address }}</span>
+                </li>
+              </ul>
+            </div>
+            <div class="selected-chips">
+              <span v-for="lib in selectedLibraries" :key="lib" class="chip">
+                {{ lib }}
+                <button type="button" @click="removeLibrary(lib)" class="remove-chip">&times;</button>
+              </span>
+            </div>
+          </div>
+
+          <div class="input-group">
+            <label>관심 분야 (복수 선택)</label>
+            <div class="checkbox-group">
+              <label v-for="genre in genreOptions" :key="genre" class="chip-label" :class="{ active: selectedGenres.includes(genre) }">
+                <input type="checkbox" :value="genre" v-model="selectedGenres" hidden> {{ genre }}
+              </label>
+            </div>
+          </div>
+
+          <div class="modal-footer">
+            <button class="btn-cancel" @click="isEditModalOpen = false">취소</button>
+            <button class="signup-submit-btn" @click="handleProfileUpdate">수정 완료</button>
+          </div>
         </div>
       </div>
     </div>
+
     <header class="profile-header">
       <h1 class="main-title">마이페이지</h1>
       <p class="sub-title">나의 독서 활동과 정보를 관리하세요</p>
     </header>
 
     <div class="user-card">
-      <div class="avatar-circle">
-        {{ userInfo.nickname ? userInfo.nickname[0] : userInfo.username[0] }}
-      </div>
       <div class="user-content">
         <div class="user-top-line">
           <h2 class="user-name">{{ userInfo.nickname || userInfo.username }}</h2>
@@ -36,23 +92,18 @@
         <p class="user-email">{{ userInfo.email }}</p>
         
         <div class="preference-tags">
-          <span class="p-tag gray">20대</span>
-          <span class="p-tag gray">여성</span>
-          <span v-for="tag in userInfo.preferred_categories" :key="tag" class="p-tag">
+          <span class="p-tag gray">{{ userInfo.age_group }}</span>
+          <span class="p-tag gray">{{ userInfo.gender === 'M' ? '남성' : userInfo.gender === 'F' ? '여성' : '기타' }}</span>
+          <span v-for="tag in (userInfo.preferred_genres ? userInfo.preferred_genres.split(',') : [])" :key="tag" class="p-tag">
             {{ tag }}
           </span>
         </div>
-        <p class="user-location">📍 {{ userInfo.address || '주소 정보가 없습니다.' }}</p>
+        <p class="user-location">📍 {{ userInfo.favorite_libraries || '등록된 도서관이 없습니다.' }}</p>
       </div>
     </div>
 
     <nav class="info-tabs">
-      <button 
-        v-for="tab in tabs" 
-        :key="tab.id"
-        :class="['tab-item', { active: currentTab === tab.id }]"
-        @click="currentTab = tab.id"
-      >
+      <button v-for="tab in tabs" :key="tab.id" :class="['tab-item', { active: currentTab === tab.id }]" @click="currentTab = tab.id">
         {{ tab.icon }} {{ tab.name }}
       </button>
     </nav>
@@ -74,263 +125,201 @@
           </button>
         </div>
       </div>
-      <div v-else class="empty-shelf">
-        소장 중인 도서가 없습니다. 서책을 등록해 보세요.
-      </div>
+      <div v-else class="empty-shelf">소장 중인 도서가 없습니다.</div>
     </section>
 
-    <section v-else class="empty-state">
-      해당 서비스는 준비 중입니다.
-    </section>
+    <section v-else class="empty-state">해당 서비스는 준비 중입니다.</section>
   </div>
 
   <div v-else class="loading-state">
     <p>신분 확인이 필요합니다.</p>
+  </div>
   </div>
 </template>
 
 <script setup>
 import { ref, onMounted, reactive } from 'vue'
 import axios from 'axios'
-import { useRouter } from 'vue-router'
 
-const router = useRouter()
 const userInfo = ref(null)
 const ownedBooks = ref([])
-
-// ★ 아래 변수들이 누락되어 에러가 났던 겁니다. 꼭 추가하세요!
-const currentTab = ref('shelf') // 현재 선택된 탭 (기본값: 나의 서가)
+const currentTab = ref('shelf')
 const tabs = [
   { id: 'shelf', name: '나의 서가', icon: '📱' },
   { id: 'activity', name: '나의 활동', icon: '💭' },
   { id: 'history', name: '거래 내역', icon: '👜' }
 ]
 
-// 3. 유저 정보 가져오기 (주소 및 인증 로직 수정)
-const fetchUserProfile = async () => {
-  const token = localStorage.getItem('token') || 
-                localStorage.getItem('access') || 
-                localStorage.getItem('access_token');
-  
-  if (!token) return;
+// --- 수정 모달 및 도서관 검색 관련 상태 ---
+const isEditModalOpen = ref(false)
+const genreOptions = ref([])
+const librarySearchQuery = ref('')
+const librarySearchResults = ref([])
+const selectedGenres = ref([])
+const selectedLibraries = ref([])
+const editForm = reactive({
+  email: '',
+  nickname: '',
+  age_group: '',
+  gender: ''
+})
 
+// 1. 프로필 & 도서 데이터 로드
+const fetchUserProfile = async () => {
+  const token = localStorage.getItem('access_token') || localStorage.getItem('access')
+  if (!token) return
   try {
     const response = await axios.get('http://127.0.0.1:8000/api/v1/users/profile/', {
-      headers: { 
-        // JWT 방식이므로 'Token' 대신 'Bearer'를 사용해야 합니다.
-        Authorization: `Bearer ${token}` 
-      }
-    });
-    userInfo.value = response.data;
-  } catch (error) {
-    console.error("에러 발생:", error.response);
-  }
+      headers: { Authorization: `Bearer ${token}` }
+    })
+    userInfo.value = response.data
+  } catch (error) { console.error("프로필 로드 실패:", error) }
 }
 
-// 4. 내 소장 도서 가져오기
 const fetchMyOwnedBooks = async () => {
-  const token = localStorage.getItem('token')
+  const token = localStorage.getItem('access_token') || localStorage.getItem('access')
   if (!token) return
-
   try {
     const response = await axios.get('http://127.0.0.1:8000/api/v1/books/', {
       params: { owned: 'true' },
       headers: { Authorization: `Bearer ${token}` }
     })
     ownedBooks.value = response.data.results || response.data
-  } catch (error) {
-    console.error("소장 도서 로드 실패:", error)
-  }
+  } catch (error) { console.error("도서 로드 실패:", error) }
 }
 
 onMounted(async () => {
   await fetchUserProfile()
   await fetchMyOwnedBooks()
-})
-const isEditModalOpen = ref(false)
-const editForm = reactive({
-  nickname: '',
-  address: ''
+  try {
+    const res = await axios.get('http://127.0.0.1:8000/api/v1/books/categories/')
+    genreOptions.value = res.data.map(c => c.name)
+  } catch { genreOptions.value = ['소설', '인문', '과학', '경제', '자기계발'] }
 })
 
-// 모달 열 때 현재 데이터 주입
+// 2. 모달 제어 및 도서관 검색 함수
 const openEditModal = () => {
-  editForm.nickname = userInfo.value.nickname || ''
-  editForm.address = userInfo.value.address || ''
+  const u = userInfo.value
+  editForm.email = u.email
+  editForm.nickname = u.nickname
+  editForm.age_group = u.age_group
+  editForm.gender = u.gender
+  selectedGenres.value = u.preferred_genres ? u.preferred_genres.split(',') : []
+  selectedLibraries.value = u.favorite_libraries ? u.favorite_libraries.split(',') : []
   isEditModalOpen.value = true
 }
 
-// 실제 DB 수정 요청 (PATCH)
-const handleProfileUpdate = async () => {
-  const token = localStorage.getItem('token') || localStorage.getItem('access') || localStorage.getItem('access_token');
+const searchLibraries = async () => {
+  if (librarySearchQuery.value.length < 2) { librarySearchResults.value = []; return; }
   try {
-    const response = await axios.patch('http://127.0.0.1:8000/api/v1/users/profile/update/', editForm, {
-      headers: { Authorization: `Bearer ${token}` }
-    });
-    userInfo.value = response.data; // 서버에서 받은 최신 데이터로 화면 갱신
-    isEditModalOpen.value = false;
-    alert("정보가 성공적으로 수정되었습니다.");
-  } catch (error) {
-    console.error("수정 실패:", error.response);
-    alert("수정 중 오류가 발생했습니다.");
+    const res = await axios.get('http://127.0.0.1:8000/api/v1/books/libraries/', { params: { q: librarySearchQuery.value } })
+    librarySearchResults.value = res.data
+  } catch (err) { console.error("검색 실패", err) }
+}
+
+const selectLibrary = (libName) => {
+  if (selectedLibraries.value.length >= 2) { alert("최대 2개까지 선택 가능합니다."); return; }
+  if (!selectedLibraries.value.includes(libName)) { selectedLibraries.value.push(libName) }
+  librarySearchQuery.value = ''; librarySearchResults.value = []
+}
+
+const removeLibrary = (libName) => {
+  selectedLibraries.value = selectedLibraries.value.filter(l => l !== libName)
+}
+
+// 3. 수정 요청 (PATCH)
+const handleProfileUpdate = async () => {
+  const token = localStorage.getItem('access_token') || localStorage.getItem('access')
+  const payload = {
+    ...editForm,
+    preferred_genres: selectedGenres.value.join(','),
+    favorite_libraries: selectedLibraries.value.join(',')
   }
+  try {
+    const res = await axios.patch('http://127.0.0.1:8000/api/v1/users/profile/update/', payload, {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+    userInfo.value = res.data
+    isEditModalOpen.value = false
+    alert("명부가 수정되었습니다.")
+  } catch (err) { alert("수정 실패: " + JSON.stringify(err.response?.data)) }
 }
 </script>
 
 <style scoped>
-.profile-container {
-  max-width: 1100px;
-  margin: 0 auto;
-  padding: 40px 20px;
-  font-family: 'Nanum Gothic', sans-serif;
+@import url('https://fonts.googleapis.com/css2?family=Hahmlet:wght@300;400;500;600;700&display=swap');
+
+.profile-outer-container {
+  background-color: #fdfaf5;
+  background-image: url('https://www.toptal.com/designers/subtlepatterns/uploads/paper.png');
+  min-height: 100vh;
+  padding: 60px 0;
+  font-family: 'Hahmlet', serif;
 }
 
-.main-title { font-size: 32px; font-weight: 800; margin-bottom: 8px; letter-spacing: -1px; }
-.sub-title { color: #666; margin-bottom: 40px; font-size: 16px; }
-
-/* 유저 카드 스타일 */
-.user-card {
-  display: flex;
-  gap: 35px;
-  padding: 40px;
-  background: #fdfdfd;
-  border: 1px solid #eaeaea;
-  border-radius: 20px;
-  margin-bottom: 45px;
-  align-items: center;
+.profile-container { 
+  max-width: 1100px; margin: 0 auto; padding: 40px 20px; 
+  font-family: 'Hahmlet', serif;
 }
 
-.avatar-circle {
-  width: 110px;
-  height: 110px;
-  background: #f0f2f5;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 36px;
-  color: #888;
-  font-weight: bold;
-}
-
-.user-content { flex: 1; }
-.user-top-line { display: flex; justify-content: space-between; align-items: center; }
-.user-name { font-size: 26px; font-weight: 700; margin: 0; }
-
-.edit-info-btn {
-  padding: 10px 18px;
-  border: 1px solid #ddd;
-  border-radius: 10px;
-  background: #fff;
-  cursor: pointer;
-  font-size: 14px;
-  font-weight: 600;
-  transition: 0.2s;
-}
-
-.user-email { color: #5c6b80; margin: 10px 0 18px; font-size: 15px; }
-
-.preference-tags { display: flex; gap: 8px; margin-bottom: 18px; flex-wrap: wrap; }
-.p-tag {
-  padding: 5px 14px;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
-  font-size: 13px;
-  color: #4a5568;
-  background: #fff;
-}
-.p-tag.gray { background: #f7fafc; color: #718096; border: none; }
-
-.user-location { font-size: 14px; color: #718096; margin: 0; }
-
-/* 탭 스타일 */
-.info-tabs {
-  display: flex;
-  background: #f1f3f5;
-  padding: 6px;
-  border-radius: 14px;
-  margin-bottom: 40px;
-}
-
-.tab-item {
-  flex: 1;
-  padding: 14px;
-  border: none;
-  background: transparent;
-  cursor: pointer;
-  border-radius: 10px;
-  font-weight: 600;
-  color: #495057;
-  transition: 0.3s;
-}
-
-.tab-item.active {
-  background: #fff;
-  color: #111;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
-}
-
-/* 도서 목록 스타일 */
-.section-title { font-size: 22px; font-weight: 700; margin-bottom: 25px; }
-
-.shelf-card {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 24px;
-  background: #fff;
-  border: 1px solid #f1f3f5;
-  border-radius: 16px;
-  margin-bottom: 18px;
-  transition: 0.2s;
-}
-
-.shelf-card:hover { border-color: #dee2e6; box-shadow: 0 4px 15px rgba(0,0,0,0.03); }
-
-.shelf-book-title { font-size: 19px; font-weight: 700; margin: 0 0 6px 0; color: #1a1a1a; }
-.shelf-book-author { font-size: 15px; color: #868e96; margin-bottom: 12px; }
-
-.shelf-badges { display: flex; gap: 8px; }
-.badge { font-size: 12px; padding: 4px 10px; border-radius: 6px; font-weight: 700; }
-.badge.owned { background: #edf2ff; color: #3b5bdb; }
-.badge.price { background: #37b24d; color: #fff; }
-
-.sell-btn {
-  padding: 12px 24px;
-  border: 1px solid #dee2e6;
-  border-radius: 10px;
-  background: #fff;
-  cursor: pointer;
-  font-weight: 700;
-  font-size: 14px;
-  transition: 0.2s;
-}
-
-.sell-btn:hover:not(.selling) { background: #f8f9fa; border-color: #adb5bd; }
-.sell-btn.selling { color: #adb5bd; border: none; background: #f1f3f5; cursor: default; }
-
-.empty-shelf, .loading-state {
-  text-align: center;
-  padding: 80px 0;
-  color: #81532e;
-  font-size: 40px;
-}
-/* 모달 레이아웃 */
+/* 모달 및 Signup 스타일 이식 */
 .modal-overlay {
   position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-  background: rgba(0, 0, 0, 0.5); display: flex; justify-content: center; align-items: center; z-index: 999;
+  background: rgba(0, 0, 0, 0.6); display: flex; justify-content: center; align-items: center; z-index: 1000;
 }
-.modal-content {
-  background: #fff; padding: 30px; border-radius: 15px; width: 100%; max-width: 400px;
-  box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+.signup-container {
+  max-width: 500px; width: 90%; padding: 40px; background-color: white; 
+  border: 1px solid #d1b894; box-shadow: 10px 10px 25px rgba(0,0,0,0.1);
 }
-.edit-form-body .input-group { margin-bottom: 15px; }
-.input-group label { display: block; margin-bottom: 5px; font-weight: bold; color: #333; }
-.input-group input {
-  width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box;
+.signup-container h2 { text-align: center; color: #4a3423; margin-bottom: 25px; }
+
+/* 폼 요소 스타일 (SignupView와 동일) */
+.signup-form { display: flex; flex-direction: column; gap: 18px; }
+.input-group { display: flex; flex-direction: column; gap: 6px; text-align: left; }
+.input-group label { font-size: 14px; font-weight: 600; color: #81532e; }
+.input-group input, .input-group select {
+  padding: 10px; border: 1px solid #e5e7eb; background-color: #fdfcfb; font-family: 'Hahmlet', serif; outline: none;
 }
-.modal-footer { display: flex; gap: 10px; margin-top: 20px; }
-.modal-footer button { flex: 1; padding: 12px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; }
-.btn-save { background: #111; color: #fff; }
-.btn-cancel { background: #eee; color: #333; }
+.input-group-row { display: flex; gap: 15px; }
+.half { flex: 1; }
+.radio-group { display: flex; gap: 10px; font-size: 14px; color: #4a3423; }
+
+/* 도서관 검색 스타일 */
+.library-search-box { position: relative; }
+.search-results {
+  position: absolute; top: 100%; left: 0; right: 0; background: white; border: 1px solid #d1b894;
+  max-height: 150px; overflow-y: auto; z-index: 100; padding: 0; margin: 0; list-style: none;
+}
+.search-results li { padding: 10px; cursor: pointer; border-bottom: 1px solid #f5ece0; font-size: 13px; }
+.lib-addr { font-size: 11px; color: #999; margin-left: 5px; }
+.selected-chips { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 5px; }
+.chip { background: #81532e; color: white; padding: 4px 10px; border-radius: 20px; font-size: 12px; display: flex; align-items: center; gap: 5px; }
+.remove-chip { background: none; border: none; color: white; cursor: pointer; font-weight: bold; }
+
+/* 관심 분야 칩 스타일 */
+.checkbox-group { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip-label { 
+  font-size: 12px; padding: 6px 12px; background: #fdfaf5; 
+  border: 1px solid #f5ece0; border-radius: 4px; cursor: pointer; transition: 0.2s;
+}
+.chip-label.active { background: #81532e; color: white; border-color: #81532e; }
+
+/* 버튼 스타일 */
+.modal-footer { display: flex; gap: 10px; margin-top: 10px; }
+.btn-cancel { flex: 1; padding: 14px; background: #eee; border: none; cursor: pointer; font-family: 'Hahmlet'; }
+.signup-submit-btn {
+  flex: 2; background-color: #81532e; color: #fdfaf5; padding: 14px;
+  border: 1px solid #4a3423; font-weight: 600; cursor: pointer; font-family: 'Hahmlet';
+}
+
+/* 마이페이지 메인 UI 스타일 */
+.user-card { display: flex; gap: 30px; padding: 30px; background: white; border: 1px solid #d1b894; margin-bottom: 30px; align-items: center; }
+.edit-info-btn { padding: 8px 15px; border: 1px solid #d1b894; background: #fff; cursor: pointer; font-family: 'Hahmlet'; font-size: 13px; }
+.p-tag { padding: 4px 12px; border: 1px solid #f5ece0; font-size: 12px; background: #fff; margin-right: 5px; }
+.p-tag.gray { background: #f9f9f9; color: #888; }
+.info-tabs { display: flex; background: #fdfaf5; border: 1px solid #f5ece0; margin-bottom: 25px; }
+.tab-item { flex: 1; padding: 15px; border: none; background: transparent; cursor: pointer; font-family: 'Hahmlet'; font-weight: 600; }
+.tab-item.active { background: #81532e; color: #fff; }
+.shelf-card { display: flex; justify-content: space-between; align-items: center; padding: 20px; border: 1px solid #f5ece0; background: white; margin-bottom: 10px; }
+.sell-btn { padding: 10px 18px; border: 1px solid #81532e; background: #fff; color: #81532e; cursor: pointer; font-family: 'Hahmlet'; font-weight: 700; }
 </style>
