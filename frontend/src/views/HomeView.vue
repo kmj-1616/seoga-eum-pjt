@@ -5,10 +5,14 @@
         <h2 class="hero-top-text">서책으로 사람을 잇다, 서가이음</h2>
         <p class="hero-subtitle">함께 나누는 문장부터 손때 묻은 서책의 새로운 인연까지</p>
         <div class="search-bar">
-          <input v-model="searchQuery" @keyup.enter="handleSearch" type="text" placeholder="찾으시는 서책의 이름을 입력하십시오..." class="search-input">
-          <button @click="handleSearch" class="search-button">
-            <img src="@/assets/search-button.jpg" alt="검색" class="search-button-img" />
-          </button>
+          <input 
+            v-model="searchQuery" 
+            @keyup.enter="handleSearch" 
+            type="text" 
+            placeholder="찾으시는 서책의 이름을 입력하십시오..." 
+            class="search-input"
+          >
+          <button @click="handleSearch" class="search-button">🔍</button>
         </div>
       </div>
     </section>
@@ -84,7 +88,7 @@ const searchQuery = ref('')
 const topGrid = ref(null)
 const userNickname = ref('')
 
-// 1. 자동 슬라이드 로직 정의 (이 부분이 빠져서 에러가 났었습니다)
+// 1. 자동 슬라이드 로직 정의 
 const startAutoScroll = () => {
   return setInterval(() => {
     if (topGrid.value) {
@@ -118,7 +122,9 @@ const fetchData = async () => {
 
   try {
     const topRes = await axios.get('http://127.0.0.1:8000/api/v1/books/', { params: { sort: 'popular' } })
-    topBooks.value = topRes.data.slice(0, 10)
+    const bookList = topRes.data.results || topRes.data; 
+
+    topBooks.value = bookList.slice(0, 10);
 
     if (status) {
       const recRes = await axios.get('http://127.0.0.1:8000/api/v1/books/recommendations/', {
@@ -134,7 +140,7 @@ const fetchData = async () => {
 // 3. 생명주기 관리
 onMounted(async () => {
   await fetchData()
-  topInterval = startAutoScroll() // 이제 정상적으로 함수를 호출합니다
+  topInterval = startAutoScroll() 
   
   // 네브바의 CustomEvent('auth-change')를 수신
   window.addEventListener('auth-change', fetchData)
@@ -153,7 +159,7 @@ const goToDetail = (isbn) => {
 
 const handleSearch = () => {
   if (!searchQuery.value.trim()) return
-  router.push({ name: 'SearchView', query: { q: searchQuery.value } })
+  router.push({ name: 'search', query: { q: searchQuery.value } })
 }
 </script>
 
@@ -184,16 +190,52 @@ const handleSearch = () => {
 .hero-top-text { font-size: 50px; letter-spacing: 5px; margin-bottom: 20px; color: #F5DEB3; }
 .hero-subtitle { font-size: 30px; margin-bottom: 40px; font-weight: 300; }
 
+/* 검색 바 컨테이너 */
 .search-bar {
   display: flex;
-  background-color: rgba(255, 255, 255, 0.95);
-  border: 2px solid #81532e;
-  width: 650px; height: 60px; margin: 0 auto;
-  box-shadow: 5px 5px 15px rgba(0,0,0,0.2);
+  align-items: center;
+  background-color: #ffffff;
+  border: 2px solid #d1b894; 
+  width: 650px;
+  height: 50px;
+  margin: 0 auto;
+  box-shadow: 5px 5px 15px rgba(0,0,0,0.1);
+  overflow: hidden;
 }
-.search-input { flex: 1; padding: 15px 20px; border: none; background: transparent; font-size: 16px; outline: none; font-family: 'Hahmlet', serif; color: #4a3423;}
-.search-button { background-color: #ffffff; border: none; padding: 0 25px; cursor: pointer; }
-.search-button-img { width: 24px; height: 24px; object-fit: fill; }
+
+/* 입력창 */
+.search-input {
+  flex: 1;
+  padding: 0 20px;
+  border: none;
+  background: transparent;
+  font-size: 16px;
+  outline: none;
+  font-family: 'Hahmlet', serif;
+  color: #4a3423;
+}
+
+/* 검색 버튼 - 베이지 스타일 */
+.search-button {
+  background-color: #f5ece0; 
+  border: none;
+  width: 70px;
+  height: 100%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  
+  /* 돋보기 아이콘 스타일 */
+  color: #81532e; 
+  font-size: 24px;
+  transition: all 0.2s ease;
+}
+
+.search-button:hover {
+  background-color: #e8ddcc; 
+  color: #4a3423; 
+}
 
 /* 레이아웃 디자인 */
 .recommend-section { max-width: 1200px; margin: 60px auto; text-align: center; }
@@ -261,9 +303,9 @@ const handleSearch = () => {
 }
 .book-author { font-size: 14px; color: #888; margin-bottom: 8px; }
 
-/* 추천 사유 공간 고정 (여기서 크기 들쭉날쭉 해결) */
+/* 추천 사유 공간 고정 */
 .ai-reason-container {
-  height: 50px; /* 사유가 들어갈 공간 고정 */
+  height: 50px; 
   display: flex;
   align-items: center;
 }
@@ -284,7 +326,7 @@ const handleSearch = () => {
 }
 .loan-info { font-size: 13px; color: #81532e; font-weight: bold; margin-top: auto; }
 
-.btn-classic { background: #81532e; color: white; padding: 12px 25px; border: none; cursor: pointer; font-family: 'Hahmlet'; }
+.btn-classic { background: #81532e; color: white; padding: 10px 20px; border: none; cursor: pointer; font-family: 'Hahmlet'; font-size: 14px;}
 .login-prompt-card { background: #fff; border: 1px solid #d1b894; padding: 40px; border-radius: 8px; }
 
 .nickname-highlight {

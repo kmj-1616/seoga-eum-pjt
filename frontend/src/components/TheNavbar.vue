@@ -70,12 +70,24 @@ export default {
       alert("로그아웃 되었습니다.");
       this.$router.push('/');
     },
-    goToHome() { this.$router.push('/') },
-    goToLogin() { this.$router.push('/login') },
-    goToSignup() { this.$router.push('/signup') },
-    goToSearch() { this.$router.push('/search') }, // 추가
-    goToMypage() { this.$router.push('/profile') } // 추가
-  }
+    goToMypage() {
+    const token = localStorage.getItem('access_token');
+    if (!token) {
+      // 로그인이 안 되어 있을 때
+      if (confirm("신분 확인이 필요한 서비스입니다. 페이지로 이동하시겠습니까?")) {
+        this.$router.push('/login');
+      }
+    } else {
+      // 로그인 상태일 때 정상 이동
+      this.$router.push('/profile');
+    }
+  },
+  
+  goToHome() { this.$router.push('/') },
+  goToLogin() { this.$router.push('/login') },
+  goToSignup() { this.$router.push('/signup') },
+  goToSearch() { this.$router.push('/search') },
+}
 }
 </script>
 

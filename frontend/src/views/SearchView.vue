@@ -1,91 +1,131 @@
 <template>
-  <div class="search-container">
-    <header class="search-header">
-      <h2 class="main-title">서적 탐색</h2>
-      <p class="sub-title">원하시는 서적을 검색하고 서가이음의 지혜를 만나보세요.</p>
-    </header>
+  <div class="search-outer-container">
+    <div class="search-container">
+      <header class="search-header">
+        <h2 class="main-title">서적 탐색</h2>
+        <p class="sub-title">서가에 꽂힌 수많은 지혜 중 당신에게 닿을 한 권을 찾아보세요.</p>
+      </header>
 
-    <div class="search-filter-card">
-      <div class="search-input-group">
-        <div class="input-wrapper">
-          <span class="search-icon">🔍</span>
-          <input 
-            type="text" 
-            v-model="searchQuery" 
-            placeholder="도서명, 저자, ISBN으로 검색"
-            @keyup.enter="handleSearch"
-          >
-        </div>
-        <button class="search-btn" @click="handleSearch">탐색</button>
-      </div>
-
-      <div class="category-tags">
-        <button 
-          v-for="cat in categories" 
-          :key="cat.id"
-          :class="['tag', { active: selectedCategoryId === cat.id }]"
-          @click="selectCategory(cat.id)"
-        >
-          {{ cat.name }}
-        </button>
-      </div>
-
-      <div class="search-meta">
-        <div class="total-count">
-          총 <span>{{ results.length }}</span>권의 도서
-        </div>
-        <div class="sort-options">
-          <select v-model="sortBy" @change="handleSearch">
-            <option value="popular">인기순</option>
-            <option value="latest">최신순</option>
-            <option value="title">제목순</option>
-          </select>
-        </div>
-      </div>
-    </div>
-
-    <section class="results-section">
-      <div v-if="loading" class="state-message">서책을 찾는 중입니다...</div>
-
-      <div v-else-if="results.length > 0" class="book-grid">
-        <div v-for="book in results" :key="book.id" class="book-card" @click="goToDetail(book.isbn)">
-          <div class="book-cover-wrapper">
-            <img :src="book.cover_url || 'https://via.placeholder.com/150x220'" alt="표지" class="book-cover">
+      <div class="search-filter-card">
+        <div class="search-input-group">
+          <div class="input-wrapper">
+            <span class="search-icon">🔍</span>
+            <input 
+              type="text" 
+              v-model="searchQuery" 
+              placeholder="도서명, 저자, ISBN으로 검색하십시오..."
+              @keyup.enter="handleSearch(1)"
+            >
           </div>
-          <div class="book-info">
-            <h4 class="book-title">{{ book.title }}</h4>
-            <p class="book-author">{{ book.author }}</p>
-            <div class="book-tags">
-              <span class="category-label">{{ book.category_name || '도서' }}</span>
+          <button class="search-btn" @click="handleSearch(1)">탐색</button>
+        </div>
+
+        <div class="category-tags">
+          <button 
+            v-for="cat in categories" 
+            :key="cat.id"
+            :class="['tag', { active: selectedCategoryId === cat.id }]"
+            @click="selectCategory(cat.id)"
+          >
+            {{ cat.name }}
+          </button>
+        </div>
+
+        <div class="search-meta">
+          <div class="total-count">
+            현재 총 <span>{{ totalCount }}</span>권의 서책이 탐색되었습니다.
+          </div>
+          <div class="sort-options">
+            <select v-model="sortBy" @change="handleSearch(1)">
+              <option value="popular">인기순</option>
+              <option value="latest">최신순</option>
+              <option value="title">제목순</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <section class="results-section">
+        <div v-if="loading" class="state-message">서고에서 책을 꺼내오는 중입니다...</div>
+
+        <div v-else-if="results.length > 0">
+          <div class="book-grid">
+            <div v-for="book in results" :key="book.id" class="book-card" @click="goToDetail(book.isbn)">
+              <div class="book-cover-wrapper">
+                <img :src="book.cover_url || 'https://via.placeholder.com/150x220'" alt="표지" class="book-cover">
+              </div>
+              <div class="book-info">
+                <h4 class="book-title">{{ book.title }}</h4>
+                <p class="book-author">{{ book.author }}</p>
+                <div class="book-tags">
+                  <span class="category-label">{{ book.category_name || '도서' }}</span>
+                </div>
+              </div>
             </div>
           </div>
-        </div>
-      </div>
 
-      <div v-else class="empty-state">
-        <p class="empty-msg">검색 결과가 없습니다.</p>
-        <p class="empty-sub">다른 검색어나 카테고리를 선택해 보세요.</p>
-      </div>
-    </section>
+          <div v-if="totalPages > 1" class="pagination-container">
+            <button 
+              class="page-btn" 
+              :disabled="currentPage === 1" 
+              @click="changePage(currentPage - 1)"
+            >
+              이전
+            </button>
+            
+            <div class="page-numbers">
+              <button 
+                v-for="p in totalPages" 
+                :key="p" 
+                :class="['page-num', { active: currentPage === p }]"
+                @click="changePage(p)"
+              >
+                {{ p }}
+              </button>
+            </div>
+
+            <button 
+              class="page-btn" 
+              :disabled="currentPage === totalPages" 
+              @click="changePage(currentPage + 1)"
+            >
+              다음
+            </button>
+          </div>
+        </div>
+
+        <div v-else class="empty-state">
+          <p class="empty-msg">탐색된 서책이 없습니다.</p>
+          <p class="empty-sub">다른 검색어나 카테고리를 선택해 보시기 바랍니다.</p>
+        </div>
+      </section>
+    </div>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch, computed } from 'vue'
 import axios from 'axios'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 
 const router = useRouter()
+const route = useRoute()
 
 // 상태 관리
 const searchQuery = ref('')
-const categories = ref([]) // ★ 기존 ['전체', '소설'...] 배열 삭제하고 빈 배열로 시작
-const selectedCategoryId = ref(null) // ★ 텍스트 대신 DB의 ID(PK)값으로 비교
+const categories = ref([]) 
+const selectedCategoryId = ref(null) 
 const sortBy = ref('popular')
 const results = ref([])
 const loading = ref(false)
 
-// 1. DB에서 카테고리 목록(books_category) 가져오기
+// 페이지네이션 필수 변수 
+const currentPage = ref(1)
+const totalCount = ref(0)
+const pageSize = 100
+const totalPages = computed(() => Math.ceil(totalCount.value / pageSize))
+
+// 1. 카테고리 로드 
 const fetchCategories = async () => {
   try {
     const response = await axios.get('http://127.0.0.1:8000/api/v1/books/categories/')
@@ -97,30 +137,56 @@ const fetchCategories = async () => {
   }
 }
 
-// 2. 검색 로직 (백엔드 BookListView 연동)
-const handleSearch = async () => {
+// 2. 검색 로직 (page 파라미터 기본값 설정)
+const handleSearch = async (page = 1) => {
   loading.value = true
+  currentPage.value = page
+  
   try {
     const params = {
       q: searchQuery.value,
-      // ★ 텍스트가 아니라 DB의 ID값을 category 파라미터로 보냄
       category: selectedCategoryId.value || '', 
-      sort: sortBy.value
+      sort: sortBy.value,
+      page: page 
     }
     
     const response = await axios.get('http://127.0.0.1:8000/api/v1/books/', { params })
     
-    // 백엔드 페이지네이션이 있다면 results 필드 접근, 없다면 data 전체 사용
-    const finalData = response.data.results || response.data
-    results.value = finalData
+    // DRF 응답 구조 대응 
+    results.value = response.data.results 
+    totalCount.value = response.data.count  
+    
+    window.scrollTo({ top: 0, behavior: 'smooth' })
   } catch (error) {
     console.error("검색 중 오류 발생:", error)
+    results.value = []
+    totalCount.value = 0
   } finally {
     loading.value = false
   }
 }
 
-// 3. 카테고리 선택 처리
+// URL 쿼리 파라미터를 searchQuery 변수에 동기화하는 함수
+const syncQueryWithUrl = () => {
+  if (route.query.q) {
+    searchQuery.value = route.query.q
+  } else {
+    searchQuery.value = ''
+  }
+}
+
+onMounted(async () => {
+  await fetchCategories()
+  syncQueryWithUrl() // 진입 시 URL에 'q'가 있는지 확인
+  handleSearch(1)     // 검색어가 바뀌면 1페이지부터 다시 검색
+})
+
+watch(() => route.query.q, () => {
+  syncQueryWithUrl()
+  handleSearch(1) // 카테고리 변경 시 1페이지로 리셋
+})
+
+// 카테고리 선택 처리
 const selectCategory = (catId) => {
   selectedCategoryId.value = catId // ID값 저장
   handleSearch()
@@ -130,55 +196,74 @@ const goToDetail = (isbn) => {
   router.push(`/book/${isbn}`)
 }
 
-onMounted(async () => {
-  await fetchCategories() // 페이지 열리자마자 카테고리 목록부터 긁어옴
-  handleSearch()         // 그 다음 첫 화면 검색 결과 로드
-})
+// 페이지 변경 함수 
+const changePage = (p) => {
+  if (p >= 1 && p <= totalPages.value) {
+    handleSearch(p)
+  }
+}
 
 </script>
 
 <style scoped>
-/* 구글 폰트 적용 전제 */
+@import url('https://fonts.googleapis.com/css2?family=Hahmlet:wght@300;400;500;600;700&display=swap');
+
+.search-outer-container {
+  background-color: #fdfaf5;
+  background-image: url('https://www.toptal.com/designers/subtlepatterns/uploads/paper.png');
+  min-height: 100vh;
+  font-family: 'Hahmlet', serif;
+}
+
 .search-container {
   max-width: 1200px;
   margin: 0 auto;
-  padding: 60px 20px;
-  font-family: 'Nanum Myeongjo', serif;
+  padding: 20px 20px;
 }
 
 .search-header {
   margin-bottom: 40px;
-  text-align: left;
+  text-align: center;
 }
 
-.main-title { font-size: 32px; font-weight: 800; color: #1a1a1a; margin-bottom: 8px; }
-.sub-title { font-size: 16px; color: #666; }
+.main-title { 
+  font-size: 36px; 
+  font-weight: 800; 
+  color: #4a3423; 
+  margin-bottom: 12px;
+  letter-spacing: 2px;
+}
+.sub-title { font-size: 18px; color: #81532e; font-weight: 300; }
 
 /* 검색 박스 */
 .search-filter-card {
   background: #fff;
-  padding: 30px;
-  border-radius: 16px;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.05);
+  padding: 40px;
+  border: 1px solid #d1b894;
+  box-shadow: 10px 10px 20px rgba(0,0,0,0.02);
   margin-bottom: 50px;
 }
 
 .search-input-group {
   display: flex;
-  gap: 12px;
-  margin-bottom: 25px;
+  gap: 15px;
+  margin-bottom: 30px;
 }
 
 .input-wrapper {
   flex: 1;
   display: flex;
   align-items: center;
-  background: #f4f4f4;
+  background: #fdfcfb;
   padding: 0 20px;
-  border-radius: 12px;
+  border: 1px solid #e5e7eb;
 }
 
-.search-icon { font-size: 18px; margin-right: 10px; }
+.input-wrapper:focus-within {
+  border-color: #81532e;
+}
+
+.search-icon { font-size: 18px; margin-right: 12px; color: #81532e; }
 
 .input-wrapper input {
   width: 100%;
@@ -186,56 +271,63 @@ onMounted(async () => {
   background: transparent;
   padding: 16px 0;
   font-size: 16px;
+  font-family: 'Hahmlet', serif;
   outline: none;
+  color: #4a3423;
+}
+
+.input-wrapper input::placeholder {
+  color: #c4b5a6;
 }
 
 .search-btn {
-  background: #111;
-  color: #fff;
-  border: none;
-  
-  /* 1. padding 대신 명확한 가로/세로 크기 지정 */
-  width: 100px;   /* 원하는 가로 크기 */
-  height: 50px;   /* input 박스와 높이를 맞추면 깔끔합니다 */
-  
-  /* 2. 글자 크기 조절 */
-  font-size: 20px; /* 원하는 크기로 조절해도 버튼 크기는 불변 */
-  
-  border-radius: 12px;
-  font-weight: 700;
+  background: #81532e;
+  color: #fdfaf5;
+  border: 1px solid #4a3423;
+  width: 120px;
+  height: 54px;
+  font-size: 18px;
+  font-family: 'Hahmlet', serif;
+  font-weight: 600;
   cursor: pointer;
-  transition: 0.2s;
-  
-  /* 3. 글자를 버튼 중앙에 배치 (필수) */
+  transition: 0.3s;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
-.search-btn:hover { background: #333; }
+.search-btn:hover { background: #4a3423; }
 
 /* 카테고리 태그 */
 .category-tags {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
-  margin-bottom: 30px;
+  gap: 12px;
+  margin-bottom: 35px;
+  justify-content: center;
 }
 
 .tag {
-  background: #fff;
-  border: 1px solid #ddd;
-  padding: 8px 18px;
-  border-radius: 25px;
+  background: #fdfaf5;
+  border: 1px solid #f5ece0;
+  padding: 8px 22px;
+  border-radius: 4px; 
   font-size: 14px;
+  font-family: 'Hahmlet', serif;
+  color: #6d5d50;
   cursor: pointer;
   transition: 0.2s;
 }
 
+.tag:hover {
+  border-color: #81532e;
+  color: #81532e;
+}
+
 .tag.active {
-  background: #111;
+  background: #81532e;
   color: #fff;
-  border-color: #111;
+  border-color: #4a3423;
 }
 
 /* 메타 정보 */
@@ -243,71 +335,130 @@ onMounted(async () => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding-top: 20px;
-  border-top: 1px solid #eee;
+  padding-top: 25px;
+  border-top: 1px solid #f5ece0;
 }
 
-.total-count { font-size: 15px; color: #444; }
-.total-count span { color: #81532e; font-weight: 800; }
+.total-count { font-size: 15px; color: #6d5d50; }
+.total-count span { color: #81532e; font-weight: 700; }
 
 .sort-options select {
-  border: none;
+  border: 1px solid transparent;
   background: transparent;
+  font-family: 'Hahmlet', serif;
   font-size: 15px;
-  color: #222;
+  color: #4a3423;
   cursor: pointer;
   outline: none;
+  padding: 5px;
+}
+
+.sort-options select:hover {
+  color: #81532e;
 }
 
 /* 결과 그리드 */
 .book-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 40px 30px;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 50px 30px;
 }
 
 .book-card {
   cursor: pointer;
-  transition: transform 0.3s;
+  transition: transform 0.3s ease;
+  background: white;
+  padding: 15px;
+  border: 1px solid transparent;
 }
 
-.book-card:hover { transform: translateY(-8px); }
+.book-card:hover { 
+  transform: translateY(-10px);
+  border-color: #f5ece0;
+  box-shadow: 0 10px 20px rgba(0,0,0,0.05);
+}
 
 .book-cover-wrapper {
   width: 100%;
   aspect-ratio: 2/3;
-  border-radius: 8px;
   overflow: hidden;
-  box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-  margin-bottom: 15px;
+  box-shadow: 5px 5px 15px rgba(0,0,0,0.1);
+  margin-bottom: 18px;
 }
 
 .book-cover { width: 100%; height: 100%; object-fit: cover; }
 
+.book-info { text-align: left; }
+
 .book-title {
   font-size: 16px;
   font-weight: 700;
-  margin-bottom: 6px;
+  color: #4a3423;
+  margin-bottom: 8px;
   line-height: 1.4;
-  /* 말줄임표 */
+  height: 2.8em; /* 두 줄 높이 고정 */
   display: -webkit-box;
   -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
   overflow: hidden;
 }
 
-.book-author { font-size: 14px; color: #888; margin-bottom: 10px; }
+.book-author { font-size: 14px; color: #888; margin-bottom: 12px; }
 
 .category-label {
   font-size: 11px;
   color: #81532e;
+  background: #fdfaf5;
   border: 1px solid #81532e;
-  padding: 2px 6px;
-  border-radius: 4px;
+  padding: 2px 8px;
+  border-radius: 2px;
 }
 
 .state-message, .empty-state {
   text-align: center;
-  padding: 100px 0;
-  color: #999;
+  padding: 120px 0;
+  color: #81532e;
+  font-size: 18px;
+}
+
+.empty-sub {
+  font-size: 15px;
+  color: #c4b5a6;
+  margin-top: 10px;
+}
+
+.pagination-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 20px;
+  margin-top: 60px;
+  padding-bottom: 40px;
+}
+
+.page-numbers {
+  display: flex;
+  gap: 10px;
+}
+
+.page-btn, .page-num {
+  background: white;
+  border: 1px solid #d1b894;
+  color: #4a3423;
+  padding: 8px 16px;
+  font-family: 'Hahmlet', serif;
+  cursor: pointer;
+  transition: 0.3s;
+}
+
+.page-num.active {
+  background: #81532e;
+  color: white;
+  border-color: #4a3423;
+}
+
+.page-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }
 </style>

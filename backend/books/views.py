@@ -2,6 +2,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status, permissions, generics
 from rest_framework.permissions import AllowAny
+from rest_framework.pagination import PageNumberPagination
 from django.shortcuts import get_object_or_404
 from django.db.models import Q
 from .models import Book, Recommendation, Category, Library
@@ -62,9 +63,13 @@ class BookActionView(APIView):
 
         return Response({"message": message}, status=status.HTTP_200_OK)
 
+class BookPagination(PageNumberPagination):
+    page_size = 100             # 한 페이지당 100권
+    page_size_query_param = 'page_size' # 프론트에서 ?page_size= 로 조절 가능
+    max_page_size = 200
+
 # 도서 검색 및 목록 조회 
 class BookListView(APIView):
-
     def get(self, request):
         query = request.query_params.get('q', '')
         category_id = request.query_params.get('category', None)
@@ -73,7 +78,7 @@ class BookListView(APIView):
         # 1. 기본 쿼리셋
         books = Book.objects.all().select_related('category')
 
-        # 2. 검색 필터링 (제목 또는 저자)
+        # 2. 검색 필터링
         if query:
             books = books.filter(
                 Q(title__icontains=query) | Q(author__icontains=query)
@@ -83,15 +88,21 @@ class BookListView(APIView):
         if category_id:
             books = books.filter(category_id=category_id)
 
-        # 4. 인기순/최신순 정렬 
+        # 4. 정렬
         if sort == 'popular':
             books = books.order_by('-loan_count', '-id')
         elif sort == 'latest':
             books = books.order_by('-pub_year', '-id')
 
-        # 목록용 시리얼라이저 사용 (홈/검색 결과 화면)
-        serializer = BookListSerializer(books[:500], many=True)
-        return Response(serializer.data)
+        # 5. 페이지네이션 적용
+        paginator = BookPagination()
+        result_page = paginator.paginate_queryset(books, request)
+        
+        # 목록용 시리얼라이저 사용
+        serializer = BookListSerializer(result_page, many=True)
+        
+        # paginator.get_paginated_response를 사용하여 count, next, previous 정보를 함께 반환
+        return paginator.get_paginated_response(serializer.data)
 
 # 도서 정보 상세 조회 
 class BookDetailView(APIView):
@@ -127,13 +138,11 @@ class LibraryListView(generics.ListAPIView):
 
     def get_queryset(self):
         queryset = Library.objects.all().order_by('lib_name')
-        # q: 도서관명 검색, region: 지역 검색
         query = self.request.query_params.get('q')
-        region = self.request.query_params.get('region')
 
         if query:
-            queryset = queryset.filter(lib_name__icontains=query)
-        if region:
-            queryset = queryset.filter(address__contains=region)
-            
-        return queryset[:50] # 검색 결과는 상위 50개만 
+            # 이름 혹은 주소에 검색어가 포함된 경우 모두 검색
+            queryset = queryset.filter(
+                Q(lib_name__icontains=query) | Q(address__icontains=query)
+            )
+        return queryset[:50]
