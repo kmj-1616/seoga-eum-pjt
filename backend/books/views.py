@@ -127,13 +127,11 @@ class LibraryListView(generics.ListAPIView):
 
     def get_queryset(self):
         queryset = Library.objects.all().order_by('lib_name')
-        # q: 도서관명 검색, region: 지역 검색
         query = self.request.query_params.get('q')
-        region = self.request.query_params.get('region')
 
         if query:
-            queryset = queryset.filter(lib_name__icontains=query)
-        if region:
-            queryset = queryset.filter(address__contains=region)
-            
-        return queryset[:50] # 검색 결과는 상위 50개만 
+            # 이름 혹은 주소에 검색어가 포함된 경우 모두 검색
+            queryset = queryset.filter(
+                Q(lib_name__icontains=query) | Q(address__icontains=query)
+            )
+        return queryset[:50]

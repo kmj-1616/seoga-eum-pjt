@@ -84,7 +84,7 @@ const searchQuery = ref('')
 const topGrid = ref(null)
 const userNickname = ref('')
 
-// 1. 자동 슬라이드 로직 정의 (이 부분이 빠져서 에러가 났었습니다)
+// 1. 자동 슬라이드 로직 정의 
 const startAutoScroll = () => {
   return setInterval(() => {
     if (topGrid.value) {
@@ -134,7 +134,7 @@ const fetchData = async () => {
 // 3. 생명주기 관리
 onMounted(async () => {
   await fetchData()
-  topInterval = startAutoScroll() // 이제 정상적으로 함수를 호출합니다
+  topInterval = startAutoScroll() 
   
   // 네브바의 CustomEvent('auth-change')를 수신
   window.addEventListener('auth-change', fetchData)
@@ -153,7 +153,7 @@ const goToDetail = (isbn) => {
 
 const handleSearch = () => {
   if (!searchQuery.value.trim()) return
-  router.push({ name: 'SearchView', query: { q: searchQuery.value } })
+  router.push({ name: 'search', query: { q: searchQuery.value } })
 }
 </script>
 
@@ -261,7 +261,7 @@ const handleSearch = () => {
 }
 .book-author { font-size: 14px; color: #888; margin-bottom: 8px; }
 
-/* 추천 사유 공간 고정 (여기서 크기 들쭉날쭉 해결) */
+/* 추천 사유 공간 고정 */
 .ai-reason-container {
   height: 50px; /* 사유가 들어갈 공간 고정 */
   display: flex;
