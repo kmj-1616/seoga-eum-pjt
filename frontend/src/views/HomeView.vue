@@ -159,10 +159,9 @@ const handleSearch = () => {
 
 <style scoped>
 @import url('https://fonts.googleapis.com/css2?family=Hahmlet:wght@400;700&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=Nanum+Myeongjo:wght@400;700&display=swap');
 
 .home-container {
-  font-family: 'Nanum Myeongjo', serif;
+  font-family: 'Hahmlet', serif;
   width: 100%;
   background-color: #fdfaf5;
   min-height: 100vh;
@@ -192,7 +191,7 @@ const handleSearch = () => {
   width: 650px; height: 60px; margin: 0 auto;
   box-shadow: 5px 5px 15px rgba(0,0,0,0.2);
 }
-.search-input { flex: 1; padding: 15px 20px; border: none; background: transparent; font-size: 16px; outline: none; }
+.search-input { flex: 1; padding: 15px 20px; border: none; background: transparent; font-size: 16px; outline: none; font-family: 'Hahmlet', serif; color: #4a3423;}
 .search-button { background-color: #ffffff; border: none; padding: 0 25px; cursor: pointer; }
 .search-button-img { width: 24px; height: 24px; object-fit: fill; }
 

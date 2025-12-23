@@ -81,23 +81,21 @@ export default {
 
 <style scoped>
 @import url('https://fonts.googleapis.com/css2?family=Hahmlet:wght@400;700&display=swap');
-/* 호준님이 짜놓으신 기존 CSS 그대로 사용 */
+
 .navbar {
   width: 100%;
-  height: 80px; 
-  background-color: white;
-  /* 구분선 */
-  /* border-bottom: 1px solid #1a0404; */
+  height: 85px; 
+  background-color: #fdfaf5; 
+  border-bottom: 2px solid #d1b894; 
   display: flex;
   align-items: center;
   position: sticky;
   top: 0;
   z-index: 1000;
+  font-family: 'Hahmlet', serif;
 }
 
 .navbar-container {
-  font-weight: 750;
-  font-family: 'Nanum Myeongjo', serif;
   width: 100%;
   max-width: 1200px;
   margin: 0 auto;
@@ -107,31 +105,93 @@ export default {
   padding: 0 20px;
 }
 
-/* ... (기존 CSS들) ... */
+.navbar-logo { 
+  cursor: pointer; 
+  transition: transform 0.2s;
+}
+.navbar-logo:hover { transform: scale(1.02); }
 
-/* 로그아웃 버튼도 회원가입 박스처럼 예쁘게 보이게 추가 스타일 */
-.logout-box {
-  background-color: #f4f4f4; /* 회원가입이랑 차이를 주기 위해 연한 회색 */
-  color: #333;
-  padding: 8px 16px;
-  border-radius: 6px;
-  font-weight: 500;
+.logo-img { height: 45px; width: auto; display: block; }
+
+/* 중앙 메뉴 */
+.navbar-center-menu { 
+  list-style: none; 
+  display: flex; 
+  gap: 50px; 
+  margin: 0; 
+  padding: 0; 
+}
+
+.navbar-center-menu li { 
+  cursor: pointer; 
+  font-size: 18px; 
+  color: #5a4a3a; 
+  display: flex; 
+  align-items: center; 
+  gap: 8px; 
+  transition: 0.3s;
+  font-family: 'Hahmlet', serif;
+}
+
+.navbar-center-menu li:hover { color: #81532e; }
+
+.navbar-center-menu li.active { 
+  color: #81532e; 
+  font-weight: 700; 
+  border-bottom: 2px solid #81532e;
+  padding-bottom: 4px;
+}
+
+.menu-icon { width: 24px; height: 24px; object-fit: contain; filter: sepia(50%); }
+
+/* 우측 인증 섹션 */
+.navbar-auth { 
+  display: flex; 
+  align-items: center; 
+  gap: 15px; 
+  font-family: 'Hahmlet', serif;
+}
+
+.auth-item { 
+  cursor: pointer; 
+  font-size: 15px; 
+  color: #4a3423; 
+  transition: 0.2s;
+}
+
+/* 명부 등록 / 로그아웃 박스 (Classic 스타일) */
+.signup-box, .logout-box { 
+  border: 1px solid #81532e;
+  padding: 8px 18px; 
+  border-radius: 4px; 
+  font-weight: 600; 
+  transition: 0.3s;
+}
+
+.signup-box { 
+  background-color: #81532e; 
+  color: #fdfaf5 !important; 
+}
+
+.signup-box:hover { 
+  background-color: #4a3423; 
+}
+
+.logout-box { 
+  background-color: white; 
+  color: #81532e; 
+}
+
+.logout-box:hover { 
+  background-color: #f5ece0; 
 }
 
 .user-name {
-  font-weight: 600;
-  color: #81532e; /* 포인트 컬러 */
+  font-weight: 700;
+  color: #81532e;
+  font-size: 16px;
+  margin-right: 5px;
 }
 
-/* 호준님의 나머지 스타일들 유지... */
-.navbar-logo { cursor: pointer; }
-.logo-img { height: 40px; width: auto; display: block; }
-.menu-icon { width: 28px; height: 28px; object-fit: contain; }
-.navbar-center-menu { list-style: none; display: flex; gap: 60px; margin: 0; padding: 0; }
-.navbar-center-menu li { cursor: pointer; font-size: 18px; color: #666; display: flex; align-items: center; gap: 5px; }
-.navbar-center-menu li.active { color: #81532e; font-weight: 600; }
-.navbar-auth { display: flex; align-items: center; gap: 20px; }
-.auth-item { cursor: pointer; font-size: 15px; color: #333; }
-.signup-box { background-color: #000; color: white; padding: 8px 16px; border-radius: 6px; font-weight: 500; }
 .auth-item:hover { opacity: 0.8; }
 </style>
