@@ -85,14 +85,15 @@
 
     <div class="user-card">
       <div class="user-content">
-        <div class="user-top-line">
+        <div class="user-info-main">
           <h2 class="user-name">{{ userInfo.nickname || userInfo.username }}</h2>
-          <button class="edit-info-btn" @click="openEditModal">📝 정보 수정</button>
-        </div>
+          <button class="edit-info-btn-inline" @click="openEditModal">정보 수정</button>
+        </div>  
         <p class="user-email">{{ userInfo.email }}</p>
         
         <div class="preference-tags">
-          <span class="p-tag gray">{{ userInfo.age_group }}</span>
+          <!-- <span class="p-tag gray">{{ userInfo.age_group }}</span> -->
+          <span class="p-tag gray">{{ ageGroupMap[userInfo.age_group] || userInfo.age_group }}</span>
           <span class="p-tag gray">{{ userInfo.gender === 'M' ? '남성' : userInfo.gender === 'F' ? '여성' : '기타' }}</span>
           <span v-for="tag in (userInfo.preferred_genres ? userInfo.preferred_genres.split(',') : [])" :key="tag" class="p-tag">
             {{ tag }}
@@ -244,6 +245,15 @@ const handleProfileUpdate = async () => {
     alert("명부가 수정되었습니다.")
   } catch (err) { alert("수정 실패: " + JSON.stringify(err.response?.data)) }
 }
+// script setup 내부에 추가
+const ageGroupMap = {
+  '10s': '10대',
+  '20s': '20대',
+  '30s': '30대',
+  '40s': '40대',
+  '50s': '50대',
+  '60s+': '60대 이상'
+}
 </script>
 
 <style scoped>
@@ -322,4 +332,16 @@ const handleProfileUpdate = async () => {
 .tab-item.active { background: #81532e; color: #fff; }
 .shelf-card { display: flex; justify-content: space-between; align-items: center; padding: 20px; border: 1px solid #f5ece0; background: white; margin-bottom: 10px; }
 .sell-btn { padding: 10px 18px; border: 1px solid #81532e; background: #fff; color: #81532e; cursor: pointer; font-family: 'Hahmlet'; font-weight: 700; }
+.user-info-main {
+  display: flex;       /* 가로로 나열 */
+  align-items: center; /* 높이 맞춤 */
+  gap: 15px;           /* 이름과 버튼 사이 간격 */
+}
+.edit-info-btn-inline {
+  /* 크기를 좀 더 작고 단정하게 조정 */
+  padding: 4px 10px;
+  font-size: 12px;
+  background: transparent;
+  border: 1px solid #d1b894;
+}
 </style>
