@@ -79,7 +79,21 @@ const fetchBookDetail = async () => {
     const headers = {}
     if (token && token !== 'null') headers.Authorization = `Bearer ${token}`
 
-    const response = await axios.get(`http://127.0.0.1:8000/api/v1/books/${route.params.isbn}/`, { headers })
+    // 1. localStorage에서 저장된 위치 정보 가져오기
+    // 로그인 시 저장하지 않았을 경우를 대비해 null 처리
+    const lat = localStorage.getItem('user_lat')
+    const lon = localStorage.getItem('user_lon')
+
+    // 2. API 호출 시 params에 위치 정보 실어 보내기
+    // 백엔드 utils.py의 get_library_full_status에서 user_lat, user_lon으로 활용됩니다.
+    const response = await axios.get(`http://127.0.0.1:8000/api/v1/books/${route.params.isbn}/`, { 
+      headers,
+      params: { 
+        lat: lat, 
+        lon: lon 
+      }
+    })
+    
     book.value = response.data
   } catch (err) {
     console.error("데이터 로드 실패:", err)
