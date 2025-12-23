@@ -14,10 +14,10 @@
               type="text" 
               v-model="searchQuery" 
               placeholder="도서명, 저자, ISBN으로 검색하십시오..."
-              @keyup.enter="handleSearch"
+              @keyup.enter="handleSearch(1)"
             >
           </div>
-          <button class="search-btn" @click="handleSearch">탐색</button>
+          <button class="search-btn" @click="handleSearch(1)">탐색</button>
         </div>
 
         <div class="category-tags">
@@ -33,10 +33,10 @@
 
         <div class="search-meta">
           <div class="total-count">
-            현재 <span>{{ results.length }}</span>권의 서책이 탐색되었습니다.
+            현재 총 <span>{{ totalCount }}</span>권의 서책이 탐색되었습니다.
           </div>
           <div class="sort-options">
-            <select v-model="sortBy" @change="handleSearch">
+            <select v-model="sortBy" @change="handleSearch(1)">
               <option value="popular">인기순</option>
               <option value="latest">최신순</option>
               <option value="title">제목순</option>
@@ -48,18 +48,49 @@
       <section class="results-section">
         <div v-if="loading" class="state-message">서고에서 책을 꺼내오는 중입니다...</div>
 
-        <div v-else-if="results.length > 0" class="book-grid">
-          <div v-for="book in results" :key="book.id" class="book-card" @click="goToDetail(book.isbn)">
-            <div class="book-cover-wrapper">
-              <img :src="book.cover_url || 'https://via.placeholder.com/150x220'" alt="표지" class="book-cover">
-            </div>
-            <div class="book-info">
-              <h4 class="book-title">{{ book.title }}</h4>
-              <p class="book-author">{{ book.author }}</p>
-              <div class="book-tags">
-                <span class="category-label">{{ book.category_name || '도서' }}</span>
+        <div v-else-if="results.length > 0">
+          <div class="book-grid">
+            <div v-for="book in results" :key="book.id" class="book-card" @click="goToDetail(book.isbn)">
+              <div class="book-cover-wrapper">
+                <img :src="book.cover_url || 'https://via.placeholder.com/150x220'" alt="표지" class="book-cover">
+              </div>
+              <div class="book-info">
+                <h4 class="book-title">{{ book.title }}</h4>
+                <p class="book-author">{{ book.author }}</p>
+                <div class="book-tags">
+                  <span class="category-label">{{ book.category_name || '도서' }}</span>
+                </div>
               </div>
             </div>
+          </div>
+
+          <div v-if="totalPages > 1" class="pagination-container">
+            <button 
+              class="page-btn" 
+              :disabled="currentPage === 1" 
+              @click="changePage(currentPage - 1)"
+            >
+              이전
+            </button>
+            
+            <div class="page-numbers">
+              <button 
+                v-for="p in totalPages" 
+                :key="p" 
+                :class="['page-num', { active: currentPage === p }]"
+                @click="changePage(p)"
+              >
+                {{ p }}
+              </button>
+            </div>
+
+            <button 
+              class="page-btn" 
+              :disabled="currentPage === totalPages" 
+              @click="changePage(currentPage + 1)"
+            >
+              다음
+            </button>
           </div>
         </div>
 
@@ -73,7 +104,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, watch } from 'vue'
+import { ref, onMounted, watch, computed } from 'vue'
 import axios from 'axios'
 import { useRouter, useRoute } from 'vue-router'
 
@@ -88,7 +119,13 @@ const sortBy = ref('popular')
 const results = ref([])
 const loading = ref(false)
 
-// 1. DB에서 카테고리 목록(books_category) 가져오기
+// 페이지네이션 필수 변수 
+const currentPage = ref(1)
+const totalCount = ref(0)
+const pageSize = 100
+const totalPages = computed(() => Math.ceil(totalCount.value / pageSize))
+
+// 1. 카테고리 로드 
 const fetchCategories = async () => {
   try {
     const response = await axios.get('http://127.0.0.1:8000/api/v1/books/categories/')
@@ -100,23 +137,30 @@ const fetchCategories = async () => {
   }
 }
 
-// 2. 검색 로직 (백엔드 BookListView 연동, 파라미터 확인)
-const handleSearch = async () => {
+// 2. 검색 로직 (page 파라미터 기본값 설정)
+const handleSearch = async (page = 1) => {
   loading.value = true
+  currentPage.value = page
+  
   try {
     const params = {
       q: searchQuery.value,
       category: selectedCategoryId.value || '', 
-      sort: sortBy.value
+      sort: sortBy.value,
+      page: page 
     }
     
     const response = await axios.get('http://127.0.0.1:8000/api/v1/books/', { params })
     
-    // 백엔드 페이지네이션이 있다면 results 필드 접근, 없다면 data 전체 사용
-    const finalData = response.data.results || response.data
-    results.value = finalData
+    // DRF 응답 구조 대응 
+    results.value = response.data.results 
+    totalCount.value = response.data.count  
+    
+    window.scrollTo({ top: 0, behavior: 'smooth' })
   } catch (error) {
     console.error("검색 중 오류 발생:", error)
+    results.value = []
+    totalCount.value = 0
   } finally {
     loading.value = false
   }
@@ -133,14 +177,13 @@ const syncQueryWithUrl = () => {
 
 onMounted(async () => {
   await fetchCategories()
-  syncQueryWithUrl() // 1. 진입 시 URL에 'q'가 있는지 확인
-  handleSearch()     // 2. 그 값으로 검색 실행
+  syncQueryWithUrl() // 진입 시 URL에 'q'가 있는지 확인
+  handleSearch(1)     // 검색어가 바뀌면 1페이지부터 다시 검색
 })
 
-// 검색 페이지에 이미 머무는 상태에서 검색창(Header 등)을 통해 검색어가 바뀔 때 대응
 watch(() => route.query.q, () => {
   syncQueryWithUrl()
-  handleSearch()
+  handleSearch(1) // 카테고리 변경 시 1페이지로 리셋
 })
 
 // 카테고리 선택 처리
@@ -151,6 +194,13 @@ const selectCategory = (catId) => {
 
 const goToDetail = (isbn) => {
   router.push(`/book/${isbn}`)
+}
+
+// 페이지 변경 함수 
+const changePage = (p) => {
+  if (p >= 1 && p <= totalPages.value) {
+    handleSearch(p)
+  }
 }
 
 </script>
@@ -375,5 +425,40 @@ const goToDetail = (isbn) => {
   font-size: 15px;
   color: #c4b5a6;
   margin-top: 10px;
+}
+
+.pagination-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 20px;
+  margin-top: 60px;
+  padding-bottom: 40px;
+}
+
+.page-numbers {
+  display: flex;
+  gap: 10px;
+}
+
+.page-btn, .page-num {
+  background: white;
+  border: 1px solid #d1b894;
+  color: #4a3423;
+  padding: 8px 16px;
+  font-family: 'Hahmlet', serif;
+  cursor: pointer;
+  transition: 0.3s;
+}
+
+.page-num.active {
+  background: #81532e;
+  color: white;
+  border-color: #4a3423;
+}
+
+.page-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }
 </style>

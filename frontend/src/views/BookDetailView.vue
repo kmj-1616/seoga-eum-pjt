@@ -112,7 +112,7 @@ const toggleAction = async (actionType) => {
   
   // 1. 비로그인 상태 체크
   if (!token || token === 'null') {
-    if (confirm("로그인이 필요한 서비스입니다.\n로그인 페이지로 이동하시겠습니까?")) {
+    if (confirm("신분 확인이 필요한 서비스입니다. 페이지로 이동하시겠습니까?")) {
       router.push({ 
         path: '/login', 
         query: { redirect: route.fullPath } 
