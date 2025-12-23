@@ -36,12 +36,13 @@ const getMyLibrary = async () => {
   if (!token) return
 
   try {
-    const res = await axios.get('http://127.0.0.1:8000/api/v1/users/library/', {
+    // 주소를 users/library/ 에서 books/libraries/ 로 변경 (s 주의!)
+    const res = await axios.get('http://127.0.0.1:8000/api/v1/books/libraries/', {
       headers: { Authorization: `Bearer ${token}` }
     })
     myBooks.value = res.data
   } catch (err) {
-    console.error("서재 데이터 로드 실패", err)
+    console.error("서재 데이터 로드 실패", err.response?.data || err.message)
   }
 }
 
