@@ -74,21 +74,33 @@ class BookListView(APIView):
         query = request.query_params.get('q', '')
         category_id = request.query_params.get('category', None)
         sort = request.query_params.get('sort', 'popular')
+        
+        # [추가] 소장 여부 파라미터 가져오기
+        owned = request.query_params.get('owned', None)
 
         # 1. 기본 쿼리셋
         books = Book.objects.all().select_related('category')
 
-        # 2. 검색 필터링
+        # [추가] 2-1. 소장 중인 도서 필터링 로직
+        if owned == 'true':
+            if request.user.is_authenticated:
+                # 현재 로그인한 유저가 소장한 책들만 필터링
+                books = books.filter(owned_users=request.user)
+            else:
+                # 로그인 안 되어있으면 빈 목록 반환
+                return Response({"results": [], "count": 0})
+
+        # 2-2. 검색 필터링 (기존 코드)
         if query:
             books = books.filter(
                 Q(title__icontains=query) | Q(author__icontains=query)
             )
 
-        # 3. 카테고리 필터링
+        # 3. 카테고리 필터링 (기존 코드)
         if category_id:
             books = books.filter(category_id=category_id)
 
-        # 4. 정렬
+        # 4. 정렬 (기존 코드)
         if sort == 'popular':
             books = books.order_by('-loan_count', '-id')
         elif sort == 'latest':
@@ -98,10 +110,10 @@ class BookListView(APIView):
         paginator = BookPagination()
         result_page = paginator.paginate_queryset(books, request)
         
-        # 목록용 시리얼라이저 사용
-        serializer = BookListSerializer(result_page, many=True)
+        # [수정] 목록용 시리얼라이저에 context 추가 
+        # (그래야 Serializer 안에서 request.user를 인식해 is_owned 필드를 채울 수 있습니다)
+        serializer = BookListSerializer(result_page, many=True, context={'request': request})
         
-        # paginator.get_paginated_response를 사용하여 count, next, previous 정보를 함께 반환
         return paginator.get_paginated_response(serializer.data)
 
 # 도서 정보 상세 조회 

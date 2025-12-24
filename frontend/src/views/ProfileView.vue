@@ -79,7 +79,7 @@
     </div>
 
     <header class="profile-header">
-      <h1 class="main-title">마이페이지</h1>
+      <h1 class="main-title">내 서재</h1>
       <p class="sub-title">나의 독서 활동과 정보를 관리하세요</p>
     </header>
 
@@ -114,7 +114,9 @@
       <div v-if="ownedBooks.length > 0" class="shelf-grid">
         <div v-for="book in ownedBooks" :key="book.id" class="shelf-card">
           <div class="shelf-info">
-            <h4 class="shelf-book-title">{{ book.title }}</h4>
+            <h4 class="shelf-book-title" @click="$router.push(`/book/${book.isbn}`)" style="cursor: pointer;">
+              {{ book.title }}
+            </h4>
             <p class="shelf-book-author">{{ book.author }}</p>
             <div class="shelf-badges">
               <span class="badge owned">소장중</span>
@@ -139,9 +141,11 @@
 </template>
 
 <script setup>
+import { useRouter } from 'vue-router'
 import { ref, onMounted, reactive } from 'vue'
 import axios from 'axios'
 
+const router = useRouter()
 const userInfo = ref(null)
 const ownedBooks = ref([])
 const currentTab = ref('shelf')
@@ -180,13 +184,31 @@ const fetchUserProfile = async () => {
 const fetchMyOwnedBooks = async () => {
   const token = localStorage.getItem('access_token') || localStorage.getItem('access')
   if (!token) return
+  
   try {
+    // 1. 서버에 'owned=true' 파라미터를 명시하여 요청
     const response = await axios.get('http://127.0.0.1:8000/api/v1/books/', {
       params: { owned: 'true' },
       headers: { Authorization: `Bearer ${token}` }
     })
-    ownedBooks.value = response.data.results || response.data
-  } catch (error) { console.error("도서 로드 실패:", error) }
+    
+    // 2. 서버가 보낸 데이터가 'results' 키 안에 들어있는지 확인
+    const allData = response.data.results || response.data
+    
+    // 3. [수정된 로직] 
+    // 서버가 'owned=true' 요청에 대해 이미 DB를 조회해서 필터링된 결과만 보내준다면,
+    // 프론트엔드에서 굳이 'is_owned === true' 조건을 검사할 필요 없이 
+    // 받은 데이터를 그대로 목록에 할당합니다.
+    if (Array.isArray(allData)) {
+      ownedBooks.value = allData; 
+    } else {
+      ownedBooks.value = [];
+    }
+    
+    console.log("나의 서가 데이터 확인:", ownedBooks.value);
+  } catch (error) { 
+    console.error("도서 로드 실패:", error) 
+  }
 }
 
 onMounted(async () => {
@@ -228,7 +250,6 @@ const removeLibrary = (libName) => {
   selectedLibraries.value = selectedLibraries.value.filter(l => l !== libName)
 }
 
-// 3. 수정 요청 (PATCH)
 const handleProfileUpdate = async () => {
   const token = localStorage.getItem('access_token') || localStorage.getItem('access')
   const payload = {
@@ -240,12 +261,17 @@ const handleProfileUpdate = async () => {
     const res = await axios.patch('http://127.0.0.1:8000/api/v1/users/profile/update/', payload, {
       headers: { Authorization: `Bearer ${token}` }
     })
-    userInfo.value = res.data
+    
+    userInfo.value = res.data       
+    await fetchUserProfile()        
+
     isEditModalOpen.value = false
     alert("명부가 수정되었습니다.")
-  } catch (err) { alert("수정 실패: " + JSON.stringify(err.response?.data)) }
+  } catch (err) { 
+    alert("수정 실패: " + JSON.stringify(err.response?.data)) 
+  }
 }
-// script setup 내부에 추가
+
 const ageGroupMap = {
   '10s': '10대',
   '20s': '20대',
@@ -333,15 +359,24 @@ const ageGroupMap = {
 .shelf-card { display: flex; justify-content: space-between; align-items: center; padding: 20px; border: 1px solid #f5ece0; background: white; margin-bottom: 10px; }
 .sell-btn { padding: 10px 18px; border: 1px solid #81532e; background: #fff; color: #81532e; cursor: pointer; font-family: 'Hahmlet'; font-weight: 700; }
 .user-info-main {
-  display: flex;       /* 가로로 나열 */
-  align-items: center; /* 높이 맞춤 */
-  gap: 15px;           /* 이름과 버튼 사이 간격 */
+  display: flex;       
+  align-items: center; 
+  gap: 15px;           
 }
 .edit-info-btn-inline {
-  /* 크기를 좀 더 작고 단정하게 조정 */
   padding: 4px 10px;
   font-size: 12px;
   background: transparent;
   border: 1px solid #d1b894;
+}
+/* style 하단에 추가 */
+.shelf-book-title {
+  margin: 0 0 5px 0;
+  transition: color 0.2s;
+}
+
+.shelf-book-title:hover {
+  color: #81532e;        /* 마우스 올리면 갈색으로 변경 */
+  text-decoration: underline; /* 밑줄 추가 */
 }
 </style>
