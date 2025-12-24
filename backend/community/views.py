@@ -7,6 +7,7 @@ from books.models import Book
 from .models import ChatMessage
 from .serializers import ChatMessageSerializer
 from books.serializers import BookListSerializer
+from django.db.models import Count
 
 
 # 함께 읽어요 채팅: 조회는 누구나, 생성은 로그인한 유저만 
@@ -36,3 +37,22 @@ class MyActivityListView(APIView):
         
         # 3. 데이터 반환
         return Response(serializer.data)
+
+class ActiveCommunityListView(APIView):
+    permission_classes = [permissions.AllowAny] # 누구나 볼 수 있게
+
+    def get(self, request):
+        # 채팅 메시지가 많은 순으로 3개 추출
+        active_books = Book.objects.annotate(
+            message_count=Count('messages'),
+            user_count=Count('messages__user', distinct=True)
+        ).filter(message_count__gt=0).order_by('-message_count')[:3]
+        
+        data = [{
+            'isbn': b.isbn,
+            'title': b.title,
+            'message_count': b.message_count,
+            'user_count': b.user_count
+        } for b in active_books]
+        
+        return Response(data)
