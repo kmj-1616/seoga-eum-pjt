@@ -55,25 +55,30 @@
           </div>
         </section>
 
-        <aside class="chat-sidebar">
-          <h3 class="sidebar-title">거래 도서 정보</h3>
-          <TransactionInfo 
-            v-if="bookInfo.title"
-            :book-title="bookInfo.title"
-            :book-author="bookInfo.author"
-            :book-price="tradeData.price"
-            :book-grade="tradeData.grade"
-            :status="tradeData.status"
-            :library-name="tradeData.library_name"
-            :library-address="tradeData.library_address"
-            :locker-number="tradeData.locker_number"
-            @confirm-receipt="handleConfirmReceipt"
-          />
-          
-          <div class="sidebar-footer-notice">
-            <p>💡 상대방이 도서관 보관함에 책을 넣으면 '수령 완료' 버튼이 활성화됩니다. 수령 후 버튼을 눌러주세요.</p>
-          </div>
-        </aside>
+      <aside class="chat-sidebar">
+        <h3 class="sidebar-title">거래 정보</h3>
+
+        <TransactionInfo 
+          v-if="bookInfo.title" 
+          :book-title="bookInfo.title"
+          :book-author="bookInfo.author"
+          :book-price="tradeData.price || 0"
+          :book-grade="tradeData.grade || '상급'"
+          :status="tradeData.status"
+          :user-role="userRole"
+          :trade-id="tradeId"
+          :pending-status-request="tradeData.pendingStatusRequest"
+          :library-name="tradeData.library_name"
+          :library-address="tradeData.library_address"
+          :locker-number="tradeData.locker_number"
+          @confirm-receipt="handleConfirmReceipt"
+          @status-changed="handleStatusChanged"
+        />
+        
+        <div v-else class="loading-box">
+          거래 데이터를 불러오는 중...
+        </div>
+      </aside>
       </div>
     </div>
   </div>
@@ -93,6 +98,7 @@ const messages = ref([]);
 const newMessage = ref('');
 const messageBox = ref(null);
 const currentUserId = ref(localStorage.getItem('user_id'));
+const userRole = ref('buyer'); // 'buyer' 또는 'seller'로 설정 (나중에 API로 동적 로드)
 
 // 도서 및 거래 정보 (나중에 API로 로드)
 const bookInfo = ref({ title: '', author: '' });
@@ -102,7 +108,8 @@ const tradeData = ref({
   status: 'REQUESTED', // 기본 상태
   library_name: '강남도서관',
   library_address: '서울시 강남구 개포로 235',
-  locker_number: 'A-12'
+  locker_number: 'A-12',
+  pendingStatusRequest: null
 });
 
 // --- 유틸리티 함수 ---
@@ -133,30 +140,90 @@ const formatKoreanTime = (timestamp) => {
 
 // --- API 호출 함수 ---
 const fetchTradeDetails = async () => {
+  const token = localStorage.getItem('access_token');
+  const userId = parseInt(localStorage.getItem('user_id'));
+  
+  if (!token) {
+    console.error("토큰이 없습니다.");
+    return;
+  }
+
   try {
-    // 1. 동료가 만든 백엔드 상세 API 주소로 교체 예정
-    // const res = await axios.get(`http://127.0.0.1:8000/api/v1/trades/${tradeId}/`);
+    console.log("거래 정보 조회 시작...");
+    // 1. 거래방 목록 조회
+    const res = await axios.get(`http://127.0.0.1:8000/api/v1/community/trade/rooms/`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+
+    console.log("API 응답:", res.data);
     
-    // 2. 받아온 데이터로 화면 갱신
-    // bookInfo.value = { title: res.data.book_title, author: res.data.book_author };
-    // tradeData.value = { 
-    //    price: res.data.price, 
-    //    status: res.data.status, // 'REQUESTED', 'LIBRARY_STORED' 등
-    //    ... 
-    // };
+    const rooms = Array.isArray(res.data) ? res.data : (res.data.results || []);
+    console.log("변환된 rooms:", rooms);
     
-    // 현재는 화면 확인용 더미
-    bookInfo.value = { title: '데미안', author: '헤르만 헤세' };
-    tradeData.value.status = 'LIBRARY_STORED'; 
+    const currentRoom = rooms.find(room => String(room.id) === String(tradeId));
+    console.log("찾은 거래방:", currentRoom, "tradeId:", tradeId);
+
+    if (currentRoom) {
+      // 2. 도서 정보 설정
+      bookInfo.value = { 
+        title: currentRoom.book_title, 
+        author: currentRoom.book_author
+      };
+      
+      // 3. 거래 상태 및 가격 설정
+      tradeData.value.status = currentRoom.status;
+      tradeData.value.price = currentRoom.selling_price || 0;
+      // 거래 장소 및 보관함 정보
+      tradeData.value.library_name = currentRoom.location || tradeData.value.library_name;
+      tradeData.value.library_address = currentRoom.library_address || tradeData.value.library_address;
+      tradeData.value.locker_number = currentRoom.locker_number || tradeData.value.locker_number;
+      tradeData.value.pendingStatusRequest = currentRoom.pending_status_request;
+      
+      // 4. [핵심] 현재 사용자가 판매자인지 구매자인지 판단
+      if (userId === currentRoom.seller_id) {
+        userRole.value = 'seller';
+      } else if (userId === currentRoom.buyer_id) {
+        userRole.value = 'buyer';
+      } else {
+        console.warn("현재 사용자가 이 거래에 참여하지 않음");
+        userRole.value = 'buyer'; // 기본값
+      }
+      
+      console.log("거래 정보 로드 완료:", {
+        title: bookInfo.value.title,
+        price: tradeData.value.price,
+        status: tradeData.value.status,
+        userRole: userRole.value,
+        userId: userId,
+        sellerId: currentRoom.seller_id,
+        buyerId: currentRoom.buyer_id,
+        pendingRequest: tradeData.value.pendingStatusRequest
+      });
+    } else {
+      console.warn(`Trade ID ${tradeId}를 찾을 수 없습니다. 사용 가능한 ID:`, rooms.map(r => r.id));
+    }
   } catch (err) {
-    console.error("거래 정보 로드 실패", err);
+    console.error("거래 정보 로드 실패:", err);
+    console.error("에러 상태:", err.response?.status);
+    console.error("에러 메시지:", err.response?.data);
   }
 };
 
 const fetchMessages = async () => {
+  const token = localStorage.getItem('access_token'); 
+  
+  if (!token) {
+    console.error("토큰이 없습니다. 로그인이 필요합니다.");
+    return;
+  }
+
   try {
-    const res = await axios.get(`http://127.0.0.1:8000/api/v1/trade/${tradeId}/messages/`);
-    messages.value = res.data;
+    const res = await axios.get(`http://127.0.0.1:8000/api/v1/community/trade/${tradeId}/messages/`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    // 배열 또는 객체 응답 모두 처리
+    messages.value = Array.isArray(res.data) ? res.data : (res.data.results || []);
+    console.log("메시지 로드 완료:", messages.value.length, "개 메시지");
     await nextTick();
     scrollToBottom();
   } catch (err) {
@@ -167,27 +234,62 @@ const fetchMessages = async () => {
 const sendMessage = async () => {
   if (!newMessage.value.trim()) return;
   const token = localStorage.getItem('access_token');
+  
   try {
-    await axios.post(
-      `http://127.0.0.1:8000/api/v1/trade/${tradeId}/messages/`,
-      { content: newMessage.value },
+    const content = newMessage.value.trim();
+    const res = await axios.post(
+      `http://127.0.0.1:8000/api/v1/community/trade/${tradeId}/messages/`,
+      { content },
       { headers: { Authorization: `Bearer ${token}` } }
     );
+    console.log("메시지 전송 성공:", res.data);
     newMessage.value = '';
-    fetchMessages();
+    await fetchMessages();
   } catch (err) {
-    alert("전송 실패");
+    console.error("메시지 전송 실패:", err);
+    const errorMsg = err.response?.data?.detail || err.message;
+    alert("전송 실패: " + errorMsg);
   }
 };
 
 const handleConfirmReceipt = async () => {
   if (!confirm("도서를 안전하게 수령하셨습니까? 거래가 완료 처리됩니다.")) return;
+  const token = localStorage.getItem('access_token');
   try {
-    // await axios.patch(`URL/trades/${tradeId}/`, { status: 'COMPLETED' });
-    tradeData.value.status = 'COMPLETED';
+    const res = await axios.post(
+      `http://127.0.0.1:8000/api/v1/community/trade/${tradeId}/buyer-receipt-complete/`,
+      {},
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+    tradeData.value.status = res.data.new_status;
     alert("거래가 완료되었습니다. 인연을 맺어주셔서 감사합니다.");
   } catch (err) {
-    alert("처리 중 오류가 발생했습니다.");
+    console.error('수령 완료 실패:', err);
+    alert("처리 중 오류가 발생했습니다: " + (err.response?.data?.error || err.message));
+  }
+};
+
+const handleStatusChanged = (newStatus) => {
+  tradeData.value.status = newStatus;
+  fetchTradeDetails(); // 최신 상태 반영
+};
+
+const approveTrade = async () => {
+  const token = localStorage.getItem('access_token');
+  
+  try {
+    console.log("판매자 거래 승인 시작...");
+    const res = await axios.post(
+      `http://127.0.0.1:8000/api/v1/community/trade/${tradeId}/seller-approval/`,
+      {},
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+    
+    console.log("판매자 거래 승인 완료:", res.data);
+    tradeData.value.status = res.data.new_status;
+  } catch (err) {
+    console.error("판매자 거래 승인 실패:", err);
+    // 에러는 무시 - 이미 APPROVED 상태일 수 있음
   }
 };
 
@@ -196,8 +298,14 @@ const scrollToBottom = () => { if (messageBox.value) messageBox.value.scrollTop 
 
 // --- 생명 주기 ---
 let pollInterval;
-onMounted(() => {
-  fetchTradeDetails();
+onMounted(async () => {
+  await fetchTradeDetails();
+  
+  // 판매자가 채팅방에 들어왔으면 거래 상태를 APPROVED로 변경
+  if (userRole.value === 'seller' && tradeData.value.status === 'REQUESTED') {
+    await approveTrade();
+  }
+  
   fetchMessages();
   pollInterval = setInterval(fetchMessages, 3000);
 });
