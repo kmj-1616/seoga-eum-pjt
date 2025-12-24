@@ -8,7 +8,7 @@ class Category(models.Model):
         return self.name
 
 class Book(models.Model):
-    # 기본 도서 정보 (도서관정보나루 API 활용) 
+    # 기본 도서 정보
     title = models.CharField(max_length=200)
     author = models.CharField(max_length=200)
     publisher = models.CharField(max_length=100)
@@ -16,21 +16,42 @@ class Book(models.Model):
     isbn = models.CharField(max_length=13, unique=True)
     description = models.TextField(null=True, blank=True)
     cover_url = models.URLField(max_length=500, null=True, blank=True)
-    # Category 모델과의 관계 설정
-    category = models.ForeignKey(Category, on_delete=models.SET_NULL, null=True, blank=True, related_name='books')
-    # 추천 및 활동 데이터
-    loan_count = models.IntegerField(default=0) # 전체 대출 횟수
     
-    # 사용자와의 관계: '함께 읽어요' 활동의 기반이 됨 
+    # 관계 설정
+    category = models.ForeignKey(Category, on_delete=models.SET_NULL, null=True, blank=True, related_name='books')
+    loan_count = models.IntegerField(default=0)
+    
+    # 구매 원해요 
     wish_users = models.ManyToManyField(
         settings.AUTH_USER_MODEL, related_name='wish_books', blank=True
-    ) # 구매/읽기 원해요
+    )
+    
+    # 소장 중이에요 (중개 모델 UserBookStock을 거쳐서 연결)
     owned_users = models.ManyToManyField(
-        settings.AUTH_USER_MODEL, related_name='owned_books', blank=True
-    ) # 소장 중이에요
+        settings.AUTH_USER_MODEL, 
+        through='UserBookStock', 
+        related_name='owned_books', 
+        blank=True
+    )
 
     def __str__(self):
         return self.title
+
+# 중개 모델 
+class UserBookStock(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    book = models.ForeignKey(Book, on_delete=models.CASCADE)
+    
+    # 추가 정보: 희망 판매가 (기본값 0원)
+    selling_price = models.PositiveIntegerField(default=0, verbose_name="희망 판매가")
+    
+    # 소장 도서로 등록한 시간
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        # 한 유저가 같은 책을 여러 번 소장 등록하는 것 방지
+        unique_together = ('user', 'book')
+        verbose_name = "도서 소장 정보"
 
 # AI 기반 추천 기능을 위한 모델 
 class Recommendation(models.Model):

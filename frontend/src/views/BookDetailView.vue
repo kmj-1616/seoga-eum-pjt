@@ -32,7 +32,7 @@
             <div class="info-item"><strong>출판사</strong> {{ book.publisher }}</div>
             <div class="info-item"><strong>출판년도</strong> {{ book.pub_year }}</div>
             <div class="info-item"><strong>ISBN</strong> {{ book.isbn }}</div>
-            <div class="info-item"><strong>누적 대출</strong> <span class="highlight">{{ book.loan_count.toLocaleString() }}회</span></div>
+            <div class="info-item"><strong>최근 3개월 대출 건수</strong> <span class="highlight">{{ book.loan_count.toLocaleString() }}회</span></div>
           </div>
           
           <div class="book-description">
@@ -235,7 +235,7 @@ onMounted(fetchBookDetail)
 }
 
 .info-item { color: #5a4a3a; font-size: 0.95rem; }
-.info-item strong { color: #81532e; margin-right: 12px; display: inline-block; width: 70px; }
+.info-item strong { color: #81532e; margin-right: 12px; display: inline-block; width: 140px; }
 .highlight { color: #81532e; font-weight: 700; }
 
 .book-description {

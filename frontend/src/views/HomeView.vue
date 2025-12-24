@@ -66,7 +66,7 @@
           <div class="book-info">
             <h4 class="book-title">{{ book.title }}</h4>
             <p class="book-author">{{ book.author }}</p>
-            <p class="loan-info">누적 대출 {{ book.loan_count.toLocaleString() }}회</p>
+            <p class="loan-info">최근 3개월간 대출 {{ book.loan_count.toLocaleString() }}회</p>
           </div>
         </div>
       </div>

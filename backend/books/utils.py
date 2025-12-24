@@ -1,17 +1,19 @@
-import json
-import os
-import requests
-import xmltodict
 import re
+import os 
+import time
+import math
+import json
+import requests
 from datetime import datetime, timedelta
 from django.conf import settings
+
 from django.db.models import Q, Count
-from django.db.models.functions import Cast
-from django.db.models import FloatField
-import math
 from openai import OpenAI
+
 from .models import Book, Category, Recommendation, Library
 from community.models import ChatMessage
+
+# --- [1] 데이터 정제 및 유틸리티 ---
 
 def fetch_books_from_api(api_type="loanItemSrch"):
     """도서관정보나루 API 호출 도구"""
@@ -61,111 +63,191 @@ def clean_book_data(title, author):
             
     return clean_title, clean_author
 
+# 사용자 위치 정보 기본값 
+DEFAULT_LAT = 37.5012
+DEFAULT_LON = 127.0395
+
+def calculate_distance(lat1, lon1, lat2, lon2):
+    """두 지점 사이의 직선 거리를 km로 계산 (Haversine 공식)"""
+    if None in [lat1, lon1, lat2, lon2]:
+        return 0
+    radius = 6371  # 지구 반지름 (km)
+    dlat = math.radians(lat2 - lat1)
+    dlon = math.radians(lon2 - lon1)
+    a = math.sin(dlat/2) * math.sin(dlat/2) + math.cos(math.radians(lat1)) \
+        * math.cos(math.radians(lat2)) * math.sin(dlon/2) * math.sin(dlon/2)
+    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
+    return round(radius * c, 2)
+
+# --- [2] 도서 정보 수집 및 API 동기화 ---
+
 def get_detailed_info(isbn):
+    """상세 API를 통해 줄거리(복합 필드)와 누적 대출 건수 수집"""
     auth_key = getattr(settings, 'LIBRARY_API_KEY', None)
     url = "http://data4library.kr/api/srchDtlList"
-    params = {
-        "authKey": auth_key, 
-        "isbn13": isbn, 
-        "loaninfoYN": "Y", 
-        "format": "json"
-    }
+    params = {"authKey": auth_key, "isbn13": isbn, "loaninfoYN": "Y", "format": "json"}
     
-    result = {"description": "", "loan_count": 0}
+    res_data = {"loan_count": 0, "description": ""}
     try:
-        res = requests.get(url, params=params)
-        response_json = res.json().get('response', {})
+        resp = requests.get(url, params=params, timeout=5).json().get('response', {})
+        # 대출 건수 추출
+        loan_info = resp.get('loanInfo', [])
+        if loan_info and 'Total' in loan_info[0]:
+            res_data["loan_count"] = int(loan_info[0]['Total'].get('loanCnt', 0))
         
-        # 1. 줄거리 추출
-        detail = response_json.get('detail', [])
-        if detail and isinstance(detail, list):
-            result["description"] = detail[0].get('book', {}).get('description', "")
-            
-        # 2. 대출 건수 추출 
-        loan_info_data = response_json.get('loanInfo', [])
-        
-        # loan_info_data가 리스트 형태이고 내용이 있을 때만 실행
-        if isinstance(loan_info_data, list) and len(loan_info_data) > 0:
-            total_info = loan_info_data[0].get('Total', {})
-            # total_info가 dict가 아닐 경우를 대비해 한 번 더 체크
-            if isinstance(total_info, dict):
-                result["loan_count"] = int(total_info.get('loanCnt', 0))
-                
-    except Exception as e:
-        print(f"⚠️ 데이터 파싱 건너뜀 ({isbn}): {e}")
-    
-    return result
+        # 줄거리 추출 (여러 필드 순차 확인)
+        detail = resp.get('detail', [])
+        if detail:
+            info = detail[0].get('book', {})
+            res_data["description"] = info.get('description') or info.get('bookIntroduction') or info.get('contents') or ""
+    except: pass
+    return res_data
 
-def update_books_from_api(page_count=5):
-    """인기 도서 목록을 가져와서 DB를 최신화 (줄거리 & 대출 건수 포함)"""
-    auth_key = getattr(settings, 'LIBRARY_API_KEY', None)
-    base_url = "http://data4library.kr/api/loanItemSrch"
-    
-    new_count = 0
-    updated_count = 0
-    
-    print(f"🔄 총 {page_count}페이지 동기화 시작...")
+# def update_books_by_category():
+#     """KDC 대분류별로 인기 도서를 수집하고 대출 건수를 최근 3개월 기준으로 동기화"""
+#     auth_key = getattr(settings, 'LIBRARY_API_KEY', None)
+#     base_url = "http://data4library.kr/api/loanItemSrch"
+#     start_dt = (datetime.now() - timedelta(days=90)).strftime('%Y-%m-%d')
+#     end_dt = datetime.now().strftime('%Y-%m-%d')
 
-    for page_no in range(1, page_count + 1):
-        params = {"authKey": auth_key, "pageSize": 50, "pageNo": page_no, "format": "json"}
-        try:
-            response = requests.get(base_url, params=params)
-            docs = response.json().get('response', {}).get('docs', [])
-            
-            for item in docs:
-                book_info = item.get('doc', {})
-                isbn = book_info.get('isbn13')
-                if not isbn: continue
+#     for kdc in [str(i) for i in range(10)]:
+#         print(f"📂 KDC {kdc} 분류 동기화 중...")
+#         for page in range(1, 3):
+#             params = {"authKey": auth_key, "kdc": kdc, "startDt": start_dt, "endDt": end_dt, "pageSize": 50, "pageNo": page, "format": "json"}
+#             try:
+#                 time.sleep(0.5)
+#                 docs = requests.get(base_url, params=params).json().get('response', {}).get('docs', [])
+#                 for item in docs:
+#                     b_info = item.get('doc', {})
+#                     isbn = b_info.get('isbn13')
+#                     if not isbn: continue
 
-                # 1. 원본 데이터 가져오기
-                raw_title = book_info.get('bookname', '')
-                raw_author = book_info.get('authors', '')
-
-                # 2. 정제 함수 호출 (제목의 부제와 저자의 불필요한 수식어 제거)
-                title, author = clean_book_data(raw_title, raw_author)
-
-                # 3. 상세 정보(줄거리 + 대출건수) 가져오기
-                detailed_data = get_detailed_info(isbn)
-                
-                description = detailed_data["description"]
-                if not description:
-                    # 상세 줄거리가 없으면 원본의 짧은 줄거리라도 사용
-                    description = book_info.get('description', f"{title}에 대한 상세 정보가 준비 중입니다.")
-                
-                loan_count = detailed_data["loan_count"]
-
-                # 4. 카테고리 처리 
-                class_nm = book_info.get('class_nm', '').strip()
-                if not class_nm:
-                    category_name = "기타"
-                else:
-                    category_name = class_nm.split('>')[0].strip()
-                    if not category_name:
-                        category_name = "기타"
-                
-                category_instance, _ = Category.objects.get_or_create(name=category_name)
-
-                # 5. DB 저장 및 업데이트
-                book, created = Book.objects.update_or_create(
-                    isbn=isbn,
-                    defaults={
-                        'title': title, 
-                        'author': author, 
-                        'publisher': book_info.get('publisher'),
-                        'description': description,
-                        'cover_url': book_info.get('bookImageURL'),
-                        'category': category_instance, 
-                        'pub_year': int(str(book_info.get('publication_year'))[:4]) if book_info.get('publication_year') else None,
-                        'loan_count': loan_count, 
-                    }
-                )
-                if created: new_count += 1
-                else: updated_count += 1
+#                     detailed = get_detailed_info(isbn)
+#                     title, author = clean_book_data(b_info.get('bookname', ''), b_info.get('authors', ''))
                     
-        except Exception as e:
-            print(f"❌ {page_no}페이지 처리 중 오류: {e}")
+#                     # 카테고리 처리
+#                     c_nm = b_info.get('class_nm', '').split('>')[0].strip() or "기타"
+#                     cat_inst, _ = Category.objects.get_or_create(name=c_nm)
 
-    print(f"✅ 동기화 완료! (새로 추가: {new_count}, 갱신: {updated_count})")
+#                     Book.objects.update_or_create(
+#                         isbn=isbn,
+#                         defaults={
+#                             'title': title, 'author': author, 'publisher': b_info.get('publisher'),
+#                             'description': detailed["description"] or b_info.get('description', ""),
+#                             'cover_url': b_info.get('bookImageURL'), 'category': cat_inst,
+#                             'loan_count': max(int(b_info.get('loanCnt', 0)), detailed["loan_count"]),
+#                             'pub_year': int(str(b_info.get('publication_year'))[:4]) if b_info.get('publication_year') else None,
+#                         }
+#                     )
+#             except Exception as e: print(f"❌ 에러({kdc}-{page}): {e}")
+
+from django.db import models
+
+def force_fix_all_descriptions_v2():
+    auth_key = getattr(settings, 'LIBRARY_API_KEY', None)
+    detail_url = "http://data4library.kr/api/srchDtlList"
+    
+    # 보강 대상 선정 (줄거리가 없거나 준비 중 문구인 것)
+    books_to_fix = Book.objects.filter(
+        models.Q(description__isnull=True) | 
+        models.Q(description="") | 
+        models.Q(description__contains="상세 정보가 준비 중입니다")
+    )
+    
+    total = books_to_fix.count()
+    if total == 0:
+        print("✨ 보강할 도서가 없습니다!")
+        return
+
+    print(f"🚀 총 {total}권에 대해 모든 텍스트 필드를 뒤져서 보강을 시작합니다.")
+
+    updated_count = 0
+    for i, book in enumerate(books_to_fix, 1):
+        try:
+            time.sleep(0.5)
+            params = {"authKey": auth_key, "isbn13": book.isbn, "loaninfoYN": "N", "format": "json"}
+            res = requests.get(detail_url, params=params, timeout=5)
+            data = res.json().get('response', {}).get('detail', [])
+            
+            if data:
+                info = data[0].get('book', {})
+                # API가 줄거리를 줄 수 있는 후보 필드들을 모두 체크
+                # 1. description, 2. bookIntroduction, 3. contents(목차/내용 요약)
+                candidate_desc = info.get('description') or info.get('bookIntroduction') or info.get('contents')
+                
+                if candidate_desc:
+                    # HTML 태그 등이 섞여 있을 수 있으므로 정제해서 저장
+                    book.description = candidate_desc.strip()
+                    book.save()
+                    updated_count += 1
+                    print(f"[{i}/{total}] ✅ {book.title} : 보강 성공!")
+                else:
+                    # 정말로 텍스트가 하나도 없는 경우만 실패 처리
+                    print(f"[{i}/{total}] ➖ {book.title} : 여전히 데이터 없음")
+            else:
+                print(f"[{i}/{total}] ❌ {book.title} : API 응답 본문 없음")
+                
+        except Exception as e:
+            print(f"[{i}/{total}] ⚠️ {book.title} 에러: {e}")
+
+    print(f"✨ 작업 완료! 총 {updated_count}권의 줄거리를 살려냈습니다.")
+
+# def force_fix_all_descriptions():
+#     """줄거리가 누락된 도서들만 골라 상세 API의 모든 필드를 뒤져 보강 (V2 통합본)"""
+#     auth_key = getattr(settings, 'LIBRARY_API_KEY', None)
+#     targets = Book.objects.filter(Q(description__isnull=True) | Q(description="") | Q(description__contains="상세 정보가 준비 중입니다"))
+    
+#     print(f"🚀 총 {targets.count()}권 줄거리 보강 시작...")
+#     for i, book in enumerate(targets, 1):
+#         time.sleep(0.5)
+#         detailed = get_detailed_info(book.isbn)
+#         if detailed["description"]:
+#             book.description = detailed["description"].strip()
+#             book.save()
+#             print(f"[{i}] ✅ {book.title} 완료")
+#         else:
+#             print(f"[{i}] ➖ {book.title} 데이터 없음")
+
+def force_fix_all_descriptions_v3():
+    # 1. 줄거리가 비어있거나 '준비 중'인 도서만 정확히 타겟팅
+    books_to_fix = Book.objects.filter(
+        models.Q(description__isnull=True) | 
+        models.Q(description="") | 
+        models.Q(description__contains="상세 정보가 준비 중입니다")
+    )
+    
+    total = books_to_fix.count()
+    if total == 0:
+        print("✨ 보강할 도서가 없습니다!")
+        return
+
+    print(f"🚀 총 {total}권에 대해 개별 상세 조회를 시작합니다. (인기 순위 무관)")
+
+    updated_count = 0
+    for i, book in enumerate(books_to_fix, 1):
+        try:
+            # 상세 API에서 줄거리 가져오기 (이미 만들어두신 get_detailed_info 활용)
+            time.sleep(0.5)  # API 과부하 방지
+            detailed_data = get_detailed_info(book.isbn)
+            description = detailed_data.get("description")
+
+            if description:
+                book.description = description
+                book.save()
+                updated_count += 1
+                print(f"[{i}/{total}] ✅ {book.title} : 업데이트 완료")
+            else:
+                # 상세 API에도 없으면 최종적으로 "정보 없음" 처리 (계속 루프 도는 것 방지)
+                if not book.description:
+                    book.description = f"{book.title}에 대한 상세 정보가 제공되지 않는 도서입니다."
+                    book.save()
+                print(f"[{i}/{total}] ➖ {book.title} : API에 줄거리 없음")
+                
+        except Exception as e:
+            print(f"[{i}/{total}] ❌ {book.title} 처리 중 에러: {e}")
+
+    print(f"✨ 작업 완료! 총 {updated_count}권의 줄거리를 보강했습니다.")
+
 
 def get_popular_books_by_user(user):
     """사용자의 성별/연령대별 최근 3개월 인기 대출 도서 리스트 조회"""
@@ -198,6 +280,121 @@ def get_popular_books_by_user(user):
         return [d.get('doc', {}).get('bookname') for d in docs]
     except:
         return []
+
+# def update_books_by_category():
+#     """KDC 대분류별 수집: 모든 도서의 대출 건수를 최근 3개월 기준으로 갱신"""
+#     auth_key = getattr(settings, 'LIBRARY_API_KEY', None)
+#     base_url = "http://data4library.kr/api/loanItemSrch"
+    
+#     # 최근 3개월 날짜 설정 (데이터 기준 통일)
+#     end_dt = datetime.now().strftime('%Y-%m-%d')
+#     start_dt = (datetime.now() - timedelta(days=90)).strftime('%Y-%m-%d')
+    
+#     kdc_codes = [str(i) for i in range(10)]
+#     updated_total = 0
+
+#     print(f"🚀 기준 통일: 최근 3개월 대출 데이터로 갱신 시작 ({start_dt} ~ {end_dt})")
+
+#     for kdc in kdc_codes:
+#         print(f"📂 KDC 분류 [{kdc}] 처리 중...")
+        
+#         for page_no in range(1, 3): 
+#             params = {
+#                 "authKey": auth_key,
+#                 "pageSize": 50,
+#                 "pageNo": page_no,
+#                 "kdc": kdc,
+#                 "startDt": start_dt,
+#                 "endDt": end_dt,
+#                 "format": "json"
+#             }
+            
+#             try:
+#                 time.sleep(0.5) 
+#                 response = requests.get(base_url, params=params, timeout=10)
+#                 docs = response.json().get('response', {}).get('docs', [])
+                
+#                 if not docs:
+#                     break
+
+#                 for item in docs:
+#                     book_info = item.get('doc', {})
+#                     isbn = book_info.get('isbn13')
+#                     if not isbn: continue
+
+#                     # 1. 목록 API에서 3개월치 대출 건수 확보
+#                     list_loan_count = int(book_info.get('loanCnt', 0))
+
+#                     # 2. 상세 API 호출 (누적치 확인용)
+#                     detailed_data = get_detailed_info(isbn)
+                    
+#                     # 3. 최종 값 결정 (3개월치 vs 누적치 중 더 큰 값)
+#                     final_loan_count = max(list_loan_count, detailed_data["loan_count"])
+
+#                     # 4. 제목 및 저자 정제 (기존 데이터와 일관성 유지)
+#                     title, author = clean_book_data(book_info.get('bookname', ''), book_info.get('authors', ''))
+                    
+#                     # 5. DB 업데이트 (기존 데이터가 있으면 덮어쓰고, 없으면 새로 생성)
+#                     book, created = Book.objects.update_or_create(
+#                         isbn=isbn,
+#                         defaults={
+#                             'title': title,
+#                             'author': author,
+#                             'publisher': book_info.get('publisher'),
+#                             'description': detailed_data.get("description") or book_info.get('description', ""),
+#                             'cover_url': book_info.get('bookImageURL'),
+#                             'pub_year': int(str(book_info.get('publication_year'))[:4]) if book_info.get('publication_year') else None,
+#                             'loan_count': final_loan_count, # 3개월 기준으로 갱신됨
+#                         }
+#                     )
+#                     updated_total += 1
+                
+#                 print(f"   ㄴ {kdc}분류 {page_no}페이지 완료")
+
+#             except Exception as e:
+#                 print(f"   ❌ 오류 발생 ({kdc}-{page_no}): {e}")
+
+#     print(f"✨ 갱신 완료! 총 {updated_total}권의 기준을 '최근 3개월'로 통일했습니다.")
+
+def update_books_by_category():
+    """KDC 대분류별로 인기 도서를 수집하고 대출 건수를 최근 3개월 기준으로 동기화"""
+    auth_key = getattr(settings, 'LIBRARY_API_KEY', None)
+    base_url = "http://data4library.kr/api/loanItemSrch"
+    start_dt = (datetime.now() - timedelta(days=90)).strftime('%Y-%m-%d')
+    end_dt = datetime.now().strftime('%Y-%m-%d')
+
+    for kdc in [str(i) for i in range(10)]:
+        print(f"📂 KDC {kdc} 분류 동기화 중...")
+        for page in range(1, 3):
+            params = {"authKey": auth_key, "kdc": kdc, "startDt": start_dt, "endDt": end_dt, "pageSize": 50, "pageNo": page, "format": "json"}
+            try:
+                time.sleep(0.5)
+                docs = requests.get(base_url, params=params).json().get('response', {}).get('docs', [])
+                for item in docs:
+                    b_info = item.get('doc', {})
+                    isbn = b_info.get('isbn13')
+                    if not isbn: continue
+
+                    detailed = get_detailed_info(isbn)
+                    title, author = clean_book_data(b_info.get('bookname', ''), b_info.get('authors', ''))
+                    
+                    # 카테고리 처리
+                    c_nm = b_info.get('class_nm', '').split('>')[0].strip() or "기타"
+                    cat_inst, _ = Category.objects.get_or_create(name=c_nm)
+
+                    Book.objects.update_or_create(
+                        isbn=isbn,
+                        defaults={
+                            'title': title, 'author': author, 'publisher': b_info.get('publisher'),
+                            'description': detailed["description"] or b_info.get('description', ""),
+                            'cover_url': b_info.get('bookImageURL'), 'category': cat_inst,
+                            'loan_count': max(int(b_info.get('loanCnt', 0)), detailed["loan_count"]),
+                            'pub_year': int(str(b_info.get('publication_year'))[:4]) if b_info.get('publication_year') else None,
+                        }
+                    )
+            except Exception as e: print(f"❌ 에러({kdc}-{page}): {e}")
+
+# --- [3] AI 추천 로직 ---
 
 def generate_ai_recommendations(user, force_update=False):
     """사용자 프로필 + 실시간 인기 통계 + 커뮤니티 활동 기반 AI 추천 생성"""
@@ -284,7 +481,98 @@ def generate_ai_recommendations(user, force_update=False):
     except Exception as e:
         print(f"❌ AI 오류: {e}")
         return False
+    
+# --- [4] 도서관 및 위치 기반 기능 ---
 
+# 도서관 목록 업데이트 
+def update_libraries():
+    auth_key = getattr(settings, 'LIBRARY_API_KEY', None)
+    base_url = "http://data4library.kr/api/libSrch"
+    regions = ["11", "31", "22", "21", "23", "24", "25", "26", "32", "33", "34", "35", "36", "37", "38", "39"]
+    total_count = 0
+
+    for region_code in regions:
+        params = {"authKey": auth_key, "region": region_code, "pageSize": 100, "format": "json"}
+        try:
+            response = requests.get(base_url, params=params)
+            data = response.json()
+            libs_list = data.get('response', {}).get('libs', [])
+            for item in libs_list:
+                lib_info = item.get('lib', {})
+                Library.objects.update_or_create(
+                    lib_code=lib_info.get('libCode'),
+                    defaults={
+                        'lib_name': lib_info.get('libName'),
+                        'address': lib_info.get('address'),
+                        'tel': lib_info.get('tel'),
+                        'latitude': float(lib_info.get('latitude')) if lib_info.get('latitude') else None,
+                        'longitude': float(lib_info.get('longitude')) if lib_info.get('longitude') else None,
+                        'homepage': lib_info.get('homepage'),
+                    }
+                )
+                total_count += 1
+        except Exception as e:
+            print(f"Error region {region_code}: {e}")
+    print(f"✅ {total_count}개 도서관 저장 완료")
+
+def get_library_full_status(isbn, libraries, user_lat, user_lon):
+    """
+    도서관 객체 리스트를 받아 실시간 상태 및 거리 정보를 포함한 데이터 반환
+    이 함수가 기존의 get_realtime_library_status를 대체합니다.
+    """
+    auth_key = getattr(settings, 'LIBRARY_API_KEY', None)
+    url = "http://data4library.kr/api/bookExist"
+    results = []
+
+    for lib in libraries:
+        # 실시간 API 호출 (소장 여부 확인)
+        params = {
+            "authKey": auth_key,
+            "libCode": lib.lib_code,
+            "isbn13": isbn,
+            "format": "json"
+        }
+        
+        has_book = "N"
+        loan_available = "N"
+        
+        try:
+            # 타임아웃을 짧게 설정하여 상세페이지 로딩 지연 방지
+            resp = requests.get(url, params=params, timeout=1.5).json()
+            exist_res = resp.get('response', {}).get('result', {})
+            has_book = exist_res.get('hasBook', 'N')
+            loan_available = exist_res.get('loanAvailable', 'N')
+        except:
+            pass # 실패 시 기본값 N 유지
+
+        results.append({
+            "libCode": lib.lib_code,
+            "libName": lib.lib_name,
+            "address": lib.address,
+            "tel": lib.tel,
+            "homepage": lib.homepage,
+            "hasBook": has_book,
+            "loanAvailable": loan_available,
+            "distance": calculate_distance(user_lat, user_lon, lib.latitude, lib.longitude)
+        })
+    return results
+
+def get_nearby_libraries_list(user_lat, user_lon, exclude_codes, limit=5):
+    """
+    관심 도서관을 제외한 주변 도서관 객체 리스트 반환
+    """
+    # 관심 도서관 제외하고 필터링
+    all_other_libs = Library.objects.exclude(lib_code__in=exclude_codes)
+    
+    # 거리순 정렬 (단순 위경도 차이의 제곱합 사용 - 정렬용으로는 충분)
+    nearby_libs = sorted(
+        all_other_libs,
+        key=lambda l: (l.latitude - user_lat)**2 + (l.longitude - user_lon)**2
+    )
+    
+    return nearby_libs[:limit]
+
+# [5] 데이터 임포트 
     
 def import_all_data():
     """books.json 파일에서 카테고리, 도서관, 도서를 순차적으로 임포트"""
@@ -360,107 +648,3 @@ def import_all_data():
             )
             book_count += 1
     print(f"✅ 도서 임포트 완료: {book_count}개")
-
-# 도서관 목록 업데이트 
-def update_libraries():
-    auth_key = getattr(settings, 'LIBRARY_API_KEY', None)
-    base_url = "http://data4library.kr/api/libSrch"
-    regions = ["11", "31", "22", "21", "23", "24", "25", "26", "32", "33", "34", "35", "36", "37", "38", "39"]
-    total_count = 0
-
-    for region_code in regions:
-        params = {"authKey": auth_key, "region": region_code, "pageSize": 100, "format": "json"}
-        try:
-            response = requests.get(base_url, params=params)
-            data = response.json()
-            libs_list = data.get('response', {}).get('libs', [])
-            for item in libs_list:
-                lib_info = item.get('lib', {})
-                Library.objects.update_or_create(
-                    lib_code=lib_info.get('libCode'),
-                    defaults={
-                        'lib_name': lib_info.get('libName'),
-                        'address': lib_info.get('address'),
-                        'tel': lib_info.get('tel'),
-                        'latitude': float(lib_info.get('latitude')) if lib_info.get('latitude') else None,
-                        'longitude': float(lib_info.get('longitude')) if lib_info.get('longitude') else None,
-                        'homepage': lib_info.get('homepage'),
-                    }
-                )
-                total_count += 1
-        except Exception as e:
-            print(f"Error region {region_code}: {e}")
-    print(f"✅ {total_count}개 도서관 저장 완료")
-
-# 사용자 위치 정보 기본값 
-DEFAULT_LAT = 37.5012
-DEFAULT_LON = 127.0395
-
-def calculate_distance(lat1, lon1, lat2, lon2):
-    """두 지점 사이의 직선 거리를 km로 계산 (Haversine 공식)"""
-    if None in [lat1, lon1, lat2, lon2]:
-        return 0
-    radius = 6371  # 지구 반지름 (km)
-    dlat = math.radians(lat2 - lat1)
-    dlon = math.radians(lon2 - lon1)
-    a = math.sin(dlat/2) * math.sin(dlat/2) + math.cos(math.radians(lat1)) \
-        * math.cos(math.radians(lat2)) * math.sin(dlon/2) * math.sin(dlon/2)
-    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
-    return round(radius * c, 2)
-
-def get_library_full_status(isbn, libraries, user_lat, user_lon):
-    """
-    도서관 객체 리스트를 받아 실시간 상태 및 거리 정보를 포함한 데이터 반환
-    이 함수가 기존의 get_realtime_library_status를 대체합니다.
-    """
-    auth_key = getattr(settings, 'LIBRARY_API_KEY', None)
-    url = "http://data4library.kr/api/bookExist"
-    results = []
-
-    for lib in libraries:
-        # 실시간 API 호출 (소장 여부 확인)
-        params = {
-            "authKey": auth_key,
-            "libCode": lib.lib_code,
-            "isbn13": isbn,
-            "format": "json"
-        }
-        
-        has_book = "N"
-        loan_available = "N"
-        
-        try:
-            # 타임아웃을 짧게 설정하여 상세페이지 로딩 지연 방지
-            resp = requests.get(url, params=params, timeout=1.5).json()
-            exist_res = resp.get('response', {}).get('result', {})
-            has_book = exist_res.get('hasBook', 'N')
-            loan_available = exist_res.get('loanAvailable', 'N')
-        except:
-            pass # 실패 시 기본값 N 유지
-
-        results.append({
-            "libCode": lib.lib_code,
-            "libName": lib.lib_name,
-            "address": lib.address,
-            "tel": lib.tel,
-            "homepage": lib.homepage,
-            "hasBook": has_book,
-            "loanAvailable": loan_available,
-            "distance": calculate_distance(user_lat, user_lon, lib.latitude, lib.longitude)
-        })
-    return results
-
-def get_nearby_libraries_list(user_lat, user_lon, exclude_codes, limit=5):
-    """
-    관심 도서관을 제외한 주변 도서관 객체 리스트 반환
-    """
-    # 관심 도서관 제외하고 필터링
-    all_other_libs = Library.objects.exclude(lib_code__in=exclude_codes)
-    
-    # 거리순 정렬 (단순 위경도 차이의 제곱합 사용 - 정렬용으로는 충분)
-    nearby_libs = sorted(
-        all_other_libs,
-        key=lambda l: (l.latitude - user_lat)**2 + (l.longitude - user_lon)**2
-    )
-    
-    return nearby_libs[:limit]
