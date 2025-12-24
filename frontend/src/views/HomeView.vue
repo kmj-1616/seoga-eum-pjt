@@ -75,19 +75,19 @@
     <section class="recommend-section community-section">
       <div class="section-header">
         <span class="decoration-line"></span>
-        <h3 class="section-title">활발한 독서 커뮤니티</h3>
+        <h3 class="section-title">지금 가장 활발한 독서 소통창</h3>
         <span class="decoration-line"></span>
       </div>
 
       <div class="community-grid">
         <div v-for="room in activeRooms" :key="room.isbn" class="community-card" @click="goToCommunity(room.isbn)">
           <div class="room-top">
-            <span class="room-icon">📘</span>
+            <img src="@/assets/search-icon.png" alt="서적" class="book-icon" />
             <h4 class="room-title">{{ room.title }}</h4>
           </div>
           <div class="room-stats">
-            <span class="stat-item">👥 {{ room.user_count }}명 참여</span>
-            <span class="stat-item">💬 {{ room.message_count }}개 메시지</span>
+            <span class="stat-item"><img src="@/assets/user-icon.png" alt="참여자" class="user-icon" /> <strong>{{ room.user_count }}</strong>명 참여</span>
+            <span class="stat-item">💬 <strong>{{ room.message_count }}</strong>개 대화</span>
           </div>
         </div>
       </div>
@@ -173,7 +173,7 @@ const fetchData = async () => {
       } catch (e) { console.error("추천 데이터 로드 실패", e) }
     }
 
-    // 3. 활발한 커뮤니티 데이터 로드 (이 부분을 아래처럼 교체하세요)
+    // 3. 활발한 커뮤니티 데이터 로드 
     try {
       const commRes = await axios.get('http://127.0.0.1:8000/api/v1/community/active-rooms/')
       activeRooms.value = commRes.data.slice(0, 3)
@@ -428,16 +428,24 @@ const handleSearch = () => {
 .room-stats {
   display: flex;
   justify-content: space-between;
+  align-items: center;
   border-top: 1px solid #f5f5f5;
   padding-top: 15px;
 }
 
 .stat-item {
-  font-size: 14px;
+  display: flex;       
+  align-items: center; 
+  gap: 3px;           
+  font-size: 15px;
   color: #666;
 }
 
-/* 하단 서비스 안내 배너 스타일 */
+.stat-item strong {
+  margin-left: 2px;
+  color: #4a3423;
+}
+
 .service-banner-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -464,7 +472,6 @@ const handleSearch = () => {
   margin-bottom: 20px;
 }
 
-/* 서비스별 아이콘 배경색 */
 .service-icon.ai { background-color: #eef2ff; color: #4f46e5; }
 .service-icon.community { background-color: #f0fdf4; color: #16a34a; }
 .service-icon.trade { background-color: #faf5ff; color: #9333ea; }
@@ -481,5 +488,15 @@ const handleSearch = () => {
   color: #777;
   line-height: 1.6;
   margin: 0;
+}
+
+.book-icon { width: 36px; height: 24px; object-fit: contain; filter: sepia(50%); }
+
+.user-icon {
+  width: 20px;         
+  height: 20px;
+  object-fit: contain;
+  filter: sepia(50%);
+  display: block;      
 }
 </style>

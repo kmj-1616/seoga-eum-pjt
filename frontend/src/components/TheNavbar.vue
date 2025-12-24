@@ -12,7 +12,7 @@
         </li>
         <li @click="goToSearch">
           <img src="@/assets/search-icon.png" alt="서적 탐색" class="menu-icon" />
-          <span class="menu-text">서적 탐색</span>
+          <span class="menu-text">서책 탐색</span>
         </li>
         <li @click="goToMypage">
           <img src="@/assets/user-icon.png" alt="내 서재" class="menu-icon" />
@@ -27,8 +27,8 @@
         </template>
         
         <template v-else>
-          <span class="auth-item user-name">{{ userNickname }}님</span>
-          <span @click="handleLogout" class="auth-item logout-box">로그아웃</span>
+          <span class="auth-item user-name">{{ userNickname }} 님</span>
+          <span @click="handleLogout" class="auth-item logout-box">서가 퇴장</span>
         </template>
       </div>
     </div>
@@ -67,7 +67,7 @@ export default {
       this.isLoggedIn = false;
       this.userNickname = '';
       window.dispatchEvent(new CustomEvent('auth-change'));
-      alert("로그아웃 되었습니다.");
+      alert("다음에 또 방문해주세요.");
       this.$router.push('/');
     },
     goToMypage() {

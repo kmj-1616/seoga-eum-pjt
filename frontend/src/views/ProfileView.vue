@@ -48,7 +48,7 @@
                 :disabled="selectedLibraries.length >= 2"
               >
               <ul v-if="librarySearchResults.length > 0" class="search-results">
-                <li v-for="lib in librarySearchResults" :key="lib.id" @click="selectLibrary(lib.lib_name)">
+                <li v-for="lib in librarySearchResults" :key="lib.lib_code" @click="selectLibrary(lib.lib_name)">
                   {{ lib.lib_name }} <span class="lib-addr">{{ lib.address }}</span>
                 </li>
               </ul>
@@ -80,7 +80,7 @@
 
     <header class="profile-header">
       <h1 class="main-title">내 서재</h1>
-      <p class="sub-title">나의 독서 활동과 정보를 관리하세요</p>
+      <p class="sub-title">나의 독서 활동과 정보를 관리하세요.</p>
     </header>
 
     <div class="user-card">
@@ -92,14 +92,13 @@
         <p class="user-email">{{ userInfo.email }}</p>
         
         <div class="preference-tags">
-          <!-- <span class="p-tag gray">{{ userInfo.age_group }}</span> -->
           <span class="p-tag gray">{{ ageGroupMap[userInfo.age_group] || userInfo.age_group }}</span>
           <span class="p-tag gray">{{ userInfo.gender === 'M' ? '남성' : userInfo.gender === 'F' ? '여성' : '기타' }}</span>
           <span v-for="tag in (userInfo.preferred_genres ? userInfo.preferred_genres.split(',') : [])" :key="tag" class="p-tag">
             {{ tag }}
           </span>
         </div>
-        <p class="user-location">📍 {{ userInfo.favorite_libraries || '등록된 도서관이 없습니다.' }}</p>
+        <p class="user-location"><img src="@/assets/home-icon.png" alt="도서관" class="lib-icon" /> {{ userInfo.favorite_libraries || '등록된 도서관이 없습니다.' }}</p>
       </div>
     </div>
 
@@ -110,7 +109,7 @@
     </nav>
 
     <section class="shelf-section" v-if="currentTab === 'shelf'">
-      <h3 class="section-title">소장 중인 도서</h3>
+      <h3 class="section-title">소장 중인 서책</h3>
       <div v-if="ownedBooks.length > 0" class="shelf-grid">
         <div v-for="book in ownedBooks" :key="book.id" class="shelf-card">
           <div class="shelf-info">
@@ -119,12 +118,12 @@
             </h4>
             <p class="shelf-book-author">{{ book.author }}</p>
             <div class="shelf-badges">
-              <span class="badge owned">소장중</span>
+              <span class="badge owned">소장 중</span>
               <span v-if="book.price" class="badge price">{{ book.price.toLocaleString() }}원</span>
             </div>
           </div>
           <button class="sell-btn" :class="{ selling: book.is_selling }">
-            {{ book.is_selling ? '판매중' : '판매 등록' }}
+            {{ book.is_selling ? '판매 중' : '판매 등록' }}
           </button>
         </div>
       </div>
@@ -132,7 +131,7 @@
     </section>
 
     <section class="shelf-section" v-else-if="currentTab === 'activity'">
-      <h3 class="section-title">참여 중인 대화방</h3>
+      <h3 class="section-title">참여 중인 소통창</h3>
       <div v-if="myActivities.length > 0" class="shelf-grid">
         <div v-for="book in myActivities" :key="book.id" class="shelf-card">
           <div class="shelf-info">
@@ -149,7 +148,7 @@
           </button>
         </div>
       </div>
-      <div v-else class="empty-shelf">아직 참여한 대화방이 없습니다.</div>
+      <div v-else class="empty-shelf">아직 참여한 소통창이 없습니다.</div>
     </section>
 
 <section v-else class="empty-state">해당 서비스는 준비 중입니다.</section>
@@ -173,7 +172,7 @@ const currentTab = ref('shelf')
 const myActivities = ref([])
 const tabs = [
   { id: 'shelf', name: '나의 서가', icon: '📱' },
-  { id: 'activity', name: '나의 활동', icon: '💭' },
+  { id: 'activity', name: '나의 소통', icon: '💭' },
   { id: 'history', name: '거래 내역', icon: '👜' }
 ]
 
@@ -226,8 +225,6 @@ const fetchMyOwnedBooks = async () => {
     } else {
       ownedBooks.value = [];
     }
-    
-    console.log("나의 서가 데이터 확인:", ownedBooks.value);
   } catch (error) { 
     console.error("도서 로드 실패:", error) 
   }
@@ -242,7 +239,6 @@ const fetchMyActivities = async () => {
       headers: { Authorization: `Bearer ${token}` }
     })
     myActivities.value = response.data
-    console.log("활동 데이터 로드 성공:", myActivities.value)
   } catch (error) {
     console.error("활동 데이터 로드 실패:", error)
   }
@@ -271,11 +267,24 @@ const openEditModal = () => {
 }
 
 const searchLibraries = async () => {
-  if (librarySearchQuery.value.length < 2) { librarySearchResults.value = []; return; }
+  if (librarySearchQuery.value.length < 2) {
+    librarySearchResults.value = []
+    return
+  }
   try {
-    const res = await axios.get('http://127.0.0.1:8000/api/v1/books/libraries/', { params: { q: librarySearchQuery.value } })
-    librarySearchResults.value = res.data
-  } catch (err) { console.error("검색 실패", err) }
+    const response = await axios.get('http://127.0.0.1:8000/api/v1/books/libraries/', {
+      params: { q: librarySearchQuery.value }
+    })
+    
+    if (response.data && response.data.results) {
+      librarySearchResults.value = response.data.results
+    } else {
+      librarySearchResults.value = response.data 
+    }
+  } catch (err) {
+    console.error("도서관 검색 실패", err)
+    librarySearchResults.value = []
+  }
 }
 
 const selectLibrary = (libName) => {
@@ -388,33 +397,94 @@ const ageGroupMap = {
 
 /* 마이페이지 메인 UI 스타일 */
 .user-card { display: flex; gap: 30px; padding: 30px; background: white; border: 1px solid #d1b894; margin-bottom: 30px; align-items: center; }
-.edit-info-btn { padding: 8px 15px; border: 1px solid #d1b894; background: #fff; cursor: pointer; font-family: 'Hahmlet'; font-size: 13px; }
-.p-tag { padding: 4px 12px; border: 1px solid #f5ece0; font-size: 12px; background: #fff; margin-right: 5px; }
+.edit-info-btn { padding: 8px 15px; border: 1px solid #d1b894; background: #fff; cursor: pointer; font-family: 'Hahmlet'; font-size: 14px; }
+.p-tag { padding: 4px 12px; border: 1px solid #f5ece0; font-size: 14px; background: #fff; margin-right: 5px; }
 .p-tag.gray { background: #f9f9f9; color: #888; }
 .info-tabs { display: flex; background: #fdfaf5; border: 1px solid #f5ece0; margin-bottom: 25px; }
-.tab-item { flex: 1; padding: 15px; border: none; background: transparent; cursor: pointer; font-family: 'Hahmlet'; font-weight: 600; }
+.tab-item { flex: 1; padding: 15px; border: none; background: transparent; cursor: pointer; font-family: 'Hahmlet'; font-weight: 600; font-size: 16px;}
 .tab-item.active { background: #81532e; color: #fff; }
 .shelf-card { display: flex; justify-content: space-between; align-items: center; padding: 20px; border: 1px solid #f5ece0; background: white; margin-bottom: 10px; }
 .sell-btn { padding: 10px 18px; border: 1px solid #81532e; background: #fff; color: #81532e; cursor: pointer; font-family: 'Hahmlet'; font-weight: 700; }
 .user-info-main {
-  display: flex;       
-  align-items: center; 
-  gap: 15px;           
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  margin-bottom: 5px; 
 }
+
+.user-name {
+  margin: 0;
+  font-size: 24px;
+  color: #4a3423;
+}
+
 .edit-info-btn-inline {
   padding: 4px 10px;
   font-size: 12px;
   background: transparent;
   border: 1px solid #d1b894;
 }
-/* style 하단에 추가 */
+
+.edit-info-btn-inline:hover {
+  background-color: #81532e; 
+  color: #ffffff;            
+  border-color: #81532e;
+  box-shadow: 0 2px 5px rgba(129, 83, 46, 0.2); 
+}
+
 .shelf-book-title {
-  margin: 0 0 5px 0;
+  font-size: 19px;      
+  font-weight: 600;
+  color: #333;
+  margin: 0 0 8px 0;    
   transition: color 0.2s;
+  line-height: 1.4;     
 }
 
 .shelf-book-title:hover {
-  color: #81532e;        /* 마우스 올리면 갈색으로 변경 */
-  text-decoration: underline; /* 밑줄 추가 */
+  color: #81532e;  
+  text-decoration: underline; 
+}
+
+.shelf-book-author {
+  font-size: 15px;
+  color: #777;
+  margin-bottom: 10px;
+}
+
+.user-location {
+  display: flex;
+  align-items: center; 
+  gap: 8px;           
+  margin-top: 15px;
+  color: #666;
+  font-size: 16px;
+}
+
+.lib-icon {
+  width: 24px;         
+  height: 24px;
+  object-fit: contain;
+  filter: sepia(50%);
+  display: block;      
+}
+
+.section-title {
+  font-size: 22px;      
+  font-weight: 700;
+  color: #4a3423;
+  margin-bottom: 20px;
+  padding-left: 5px;
+  border-left: 4px solid #81532e; 
+  line-height: 1.2;
+}
+
+.empty-shelf {
+  padding: 40px;
+  text-align: center;
+  color: #999;
+  font-size: 16px;
+  background: #fdfcfb;
+  border: 1px dashed #d1b894;
 }
 </style>

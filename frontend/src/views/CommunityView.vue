@@ -3,7 +3,7 @@
     <div class="chat-container">
       <header class="chat-header">
         <button class="back-btn" @click="$router.back()">
-          <span class="arrow">←</span> 도서 정보로 돌아가기
+          <span class="arrow">←</span> 이전으로 돌아가기
         </button>
         <div class="book-context">
           <h2 class="community-title">{{ bookTitle || '도서 정보를 불러오는 중...' }}</h2>

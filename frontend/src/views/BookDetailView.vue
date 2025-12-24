@@ -1,5 +1,7 @@
 <template>
-  <div v-if="book" class="detail-outer-container"> <div class="detail-container">
+  <div class="detail-outer-container">
+    
+    <div class="detail-container" v-if="book">
       <aside class="side-panel">
         <div class="cover-card">
           <img :src="book.cover_url" alt="Book Cover" class="book-cover" />
@@ -68,6 +70,14 @@
         </section>
       </main>
     </div>
+
+    <div class="loading-state" v-else>
+      <div class="loading-content">
+        <div class="spinner"></div>
+        <p class="loading-text">서가에서 책을 찾는 중입니다...</p>
+      </div>
+    </div>
+
   </div>
 </template>
 
@@ -146,13 +156,47 @@ onMounted(fetchBookDetail)
 <style scoped>
 @import url('https://fonts.googleapis.com/css2?family=Hahmlet:wght@400;700&display=swap');
 
-/* 전체 배경 설정 */
 .detail-outer-container {
   background-color: #fdfaf5;
   background-image: url('https://www.toptal.com/designers/subtlepatterns/uploads/paper.png');
   min-height: 100vh;
-  padding: 40px 0;
+  display: flex;         
+  flex-direction: column;
   font-family: 'Hahmlet', serif;
+}
+
+.loading-state {
+  flex: 1;               
+  display: flex;
+  justify-content: center; 
+  align-items: center;     
+  padding-bottom: 10vh;    
+}
+
+.loading-content {
+  text-align: center;
+}
+
+.spinner {
+  width: 50px;
+  height: 50px;
+  border: 5px solid #f5ece0;
+  border-top: 5px solid #81532e;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin: 0 auto 20px;   
+}
+
+.loading-text {
+  color: #81532e;
+  font-size: 1.2rem;
+  font-weight: 500;
+  margin: 0;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 }
 
 .detail-container {
