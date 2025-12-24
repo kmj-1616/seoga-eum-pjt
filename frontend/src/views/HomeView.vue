@@ -71,6 +71,45 @@
         </div>
       </div>
     </section>
+
+    <section class="recommend-section community-section">
+      <div class="section-header">
+        <span class="decoration-line"></span>
+        <h3 class="section-title">활발한 독서 커뮤니티</h3>
+        <span class="decoration-line"></span>
+      </div>
+
+      <div class="community-grid">
+        <div v-for="room in activeRooms" :key="room.isbn" class="community-card" @click="goToCommunity(room.isbn)">
+          <div class="room-top">
+            <span class="room-icon">📘</span>
+            <h4 class="room-title">{{ room.title }}</h4>
+          </div>
+          <div class="room-stats">
+            <span class="stat-item">👥 {{ room.user_count }}명 참여</span>
+            <span class="stat-item">💬 {{ room.message_count }}개 메시지</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- <div class="service-banner-grid">
+        <div class="service-card">
+          <div class="service-icon ai">📘</div>
+          <h4>AI 맞춤 추천</h4>
+          <p>독서 기록과 선호 데이터를 AI가 분석하여 당신에게 딱 맞는 도서를 추천합니다</p>
+        </div>
+        <div class="service-card">
+          <div class="service-icon community">👥</div>
+          <h4>독서 커뮤니티</h4>
+          <p>같은 책을 읽는 독자들과 실시간으로 소통하고 생각을 나눠보세요</p>
+        </div>
+        <div class="service-card">
+          <div class="service-icon trade">🛍️</div>
+          <h4>중고책 거래</h4>
+          <p>공공도서관 보관함을 활용한 안전하고 편리한 중고책 거래를 경험하세요</p>
+        </div>
+      </div> -->
+    </section>
   </div>
 </template>
 
@@ -87,15 +126,14 @@ const isLoggedIn = ref(false)
 const searchQuery = ref('')
 const topGrid = ref(null)
 const userNickname = ref('')
+const activeRooms = ref([])
 
-// 1. 자동 슬라이드 로직 정의 
 const startAutoScroll = () => {
   return setInterval(() => {
     if (topGrid.value) {
       const el = topGrid.value
       const maxScroll = el.scrollWidth - el.clientWidth
       
-      // 스크롤이 끝에 도달하면 처음으로, 아니면 250px씩 이동
       if (el.scrollLeft >= maxScroll - 10) {
         el.scrollTo({ left: 0, behavior: 'smooth' })
       } else {
@@ -105,9 +143,8 @@ const startAutoScroll = () => {
   }, 3000)
 }
 
-let topInterval // 인터벌 ID 보관용 변수
+let topInterval 
 
-// 2. 데이터를 가져오는 핵심 함수
 const fetchData = async () => {
   const token = localStorage.getItem('access_token')
   const status = !!token
@@ -121,28 +158,44 @@ const fetchData = async () => {
   }
 
   try {
+    // 1. 인기 서책 로드
     const topRes = await axios.get('http://127.0.0.1:8000/api/v1/books/', { params: { sort: 'popular' } })
     const bookList = topRes.data.results || topRes.data; 
-
     topBooks.value = bookList.slice(0, 10);
 
+    // 2. 추천 서책 로드 (로그인 시)
     if (status) {
-      const recRes = await axios.get('http://127.0.0.1:8000/api/v1/books/recommendations/', {
-        headers: { Authorization: `Bearer ${token}` }
-      })
-      recommendations.value = recRes.data
+      try {
+        const recRes = await axios.get('http://127.0.0.1:8000/api/v1/books/recommendations/', {
+          headers: { Authorization: `Bearer ${token}` }
+        })
+        recommendations.value = recRes.data
+      } catch (e) { console.error("추천 데이터 로드 실패", e) }
     }
+
+    // 3. 활발한 커뮤니티 데이터 로드 (이 부분을 아래처럼 교체하세요)
+    try {
+      const commRes = await axios.get('http://127.0.0.1:8000/api/v1/community/active-rooms/')
+      activeRooms.value = commRes.data.slice(0, 3)
+    } catch (commErr) {
+      console.warn("커뮤니티 API가 아직 준비되지 않아 더미 데이터를 표시합니다.")
+      // API 연결 전까지 화면을 확인하기 위한 더미 데이터입니다.
+      activeRooms.value = [
+        { isbn: '9788936434120', title: '데미안', user_count: 24, message_count: 156 },
+        { isbn: '9788937460753', title: '1984', user_count: 18, message_count: 89 },
+        { isbn: '9788936433598', title: '채식주의자', user_count: 31, message_count: 203 }
+      ]
+    }
+
   } catch (err) {
-    console.error("데이터 로드 실패:", err)
+    console.error("전체 데이터 로드 중 치명적 오류:", err)
   }
 }
 
-// 3. 생명주기 관리
 onMounted(async () => {
   await fetchData()
   topInterval = startAutoScroll() 
   
-  // 네브바의 CustomEvent('auth-change')를 수신
   window.addEventListener('auth-change', fetchData)
 })
 
@@ -151,10 +204,14 @@ onUnmounted(() => {
   window.removeEventListener('auth-change', fetchData)
 })
 
-// 4. 이동 및 검색 로직
 const goToDetail = (isbn) => {
   if (!isbn) return;
   router.push({ name: 'bookdetail', params: { isbn: String(isbn) } });
+}
+
+const goToCommunity = (isbn) => {
+  if (!isbn) return;
+  router.push(`/community/${isbn}`);
 }
 
 const handleSearch = () => {
@@ -173,7 +230,6 @@ const handleSearch = () => {
   min-height: 100vh;
 }
 
-/* 히어로 배너 유지 */
 .hero-banner {
   padding-bottom: 60px;
   background-color: #4a3423; 
@@ -190,7 +246,6 @@ const handleSearch = () => {
 .hero-top-text { font-size: 50px; letter-spacing: 5px; margin-bottom: 20px; color: #F5DEB3; }
 .hero-subtitle { font-size: 30px; margin-bottom: 40px; font-weight: 300; }
 
-/* 검색 바 컨테이너 */
 .search-bar {
   display: flex;
   align-items: center;
@@ -203,7 +258,6 @@ const handleSearch = () => {
   overflow: hidden;
 }
 
-/* 입력창 */
 .search-input {
   flex: 1;
   padding: 0 20px;
@@ -215,7 +269,6 @@ const handleSearch = () => {
   color: #4a3423;
 }
 
-/* 검색 버튼 - 베이지 스타일 */
 .search-button {
   background-color: #f5ece0; 
   border: none;
@@ -226,7 +279,6 @@ const handleSearch = () => {
   align-items: center;
   justify-content: center;
   
-  /* 돋보기 아이콘 스타일 */
   color: #81532e; 
   font-size: 24px;
   transition: all 0.2s ease;
@@ -237,28 +289,25 @@ const handleSearch = () => {
   color: #4a3423; 
 }
 
-/* 레이아웃 디자인 */
 .recommend-section { max-width: 1200px; margin: 60px auto; text-align: center; }
 .section-header { display: flex; align-items: center; justify-content: center; gap: 20px; margin-bottom: 10px; }
 .decoration-line { height: 1px; width: 50px; background-color: #81532e; }
 .section-title { font-size: 34px; color: #4a3423; font-weight: 700; }
 .section-desc { color: #967979; font-size: 24px; margin-bottom: 30px; }
 
-/* 1. 고정 그리드 (추천 도서) */
 .book-grid-fixed {
   display: flex;
-  flex-wrap: nowrap; /* 줄바꿈 절대 금지 */
-  justify-content: space-between; /* 5개를 양 끝에 맞춰 균등 배분 */
-  gap: 15px; /* 간격을 살짝 좁힘 */
+  flex-wrap: nowrap;
+  justify-content: space-between;
+  gap: 15px;
   padding: 20px 0;
-  width: 100%; /* 부모 너비를 가득 채움 */
+  width: 100%;
 }
 
-/* 2. 자동 슬라이드 그리드 (인기 도서) */
 .book-grid-scroll {
   display: flex;
   gap: 30px;
-  overflow-x: auto; /* 자동 슬라이드 작동을 위해 필요 */
+  overflow-x: auto;
   white-space: nowrap;
   scroll-behavior: smooth;
   scrollbar-width: none;
@@ -266,7 +315,6 @@ const handleSearch = () => {
 }
 .book-grid-scroll::-webkit-scrollbar { display: none; }
 
-/* 3. 카드 공통 스타일 */
 .book-card {
   flex: 0 0 calc(20% - 15px); 
   min-width: 190px; 
@@ -292,7 +340,7 @@ const handleSearch = () => {
 .book-cover { width: 100%; height: 100%; object-fit: cover; }
 
 .book-info {
-  flex-grow: 1; /* 남은 공간을 차지하여 하단 정렬 유지 */
+  flex-grow: 1;
   display: flex;
   flex-direction: column;
 }
@@ -303,7 +351,6 @@ const handleSearch = () => {
 }
 .book-author { font-size: 14px; color: #888; margin-bottom: 8px; }
 
-/* 추천 사유 공간 고정 */
 .ai-reason-container {
   height: 50px; 
   display: flex;
@@ -333,5 +380,106 @@ const handleSearch = () => {
   color: #81532e;     
   font-weight: 700;   
   font-size: 1.1em;   
+}
+
+.community-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 25px;
+  margin: 30px 0 60px 0;
+}
+
+.community-card {
+  background: white;
+  padding: 25px;
+  border-radius: 12px;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+  border: 1px solid #eee;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.community-card:hover {
+  transform: translateY(-7px);
+  box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+  border-color: #d1b894;
+}
+
+.room-top {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 25px;
+}
+
+.room-icon {
+  font-size: 20px;
+  color: #4a90e2; /* 이미지의 푸른 아이콘 느낌 */
+}
+
+.room-title {
+  font-size: 20px;
+  font-weight: 700;
+  color: #4a3423;
+  margin: 0;
+}
+
+.room-stats {
+  display: flex;
+  justify-content: space-between;
+  border-top: 1px solid #f5f5f5;
+  padding-top: 15px;
+}
+
+.stat-item {
+  font-size: 14px;
+  color: #666;
+}
+
+/* 하단 서비스 안내 배너 스타일 */
+.service-banner-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+  margin-top: 40px;
+}
+
+.service-card {
+  background: #ffffff;
+  padding: 30px;
+  border-radius: 15px;
+  text-align: left;
+  border: 1px solid #f0f0f0;
+}
+
+.service-icon {
+  width: 50px;
+  height: 50px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  margin-bottom: 20px;
+}
+
+/* 서비스별 아이콘 배경색 */
+.service-icon.ai { background-color: #eef2ff; color: #4f46e5; }
+.service-icon.community { background-color: #f0fdf4; color: #16a34a; }
+.service-icon.trade { background-color: #faf5ff; color: #9333ea; }
+
+.service-card h4 {
+  font-size: 18px;
+  font-weight: 700;
+  color: #333;
+  margin-bottom: 12px;
+}
+
+.service-card p {
+  font-size: 14px;
+  color: #777;
+  line-height: 1.6;
+  margin: 0;
 }
 </style>

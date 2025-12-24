@@ -39,7 +39,12 @@ const router = createRouter({
     path: '/community/:isbn', 
     name: 'community',
     component: () => import('../views/CommunityView.vue'),
-  }
+    },
+    {
+    path: '/community/:isbn',
+    name: 'community',
+    component: () => import('../views/CommunityView.vue') // 실제 커뮤니티 뷰 파일 경로
+   }
   ]
 })
 
