@@ -101,14 +101,9 @@ h4 {
 }
 .footer-links li {
   margin-bottom: 12px;
-  cursor: pointer;
   font-size: 15px;
   color: #d1b894;
   transition: color 0.3s;
-}
-.footer-links li:hover {
-  color: #fff;
-  text-decoration: underline;
 }
 
 .footer-info p {
