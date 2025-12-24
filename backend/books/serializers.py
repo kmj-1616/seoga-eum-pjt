@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Book, Recommendation, Category, Library 
+from .models import Book, Recommendation, Category, Library, UserBookStock 
 from community.models import ChatMessage 
 
 # 0. 카테고리 정보용
@@ -8,13 +8,27 @@ class CategorySerializer(serializers.ModelSerializer):
         model = Category
         fields = ['id', 'name']
 
-# 1. 도서 목록용 (홈 화면)
+# 1. 도서 목록용 (홈 화면 & 마이페이지 나의 서가)
 class BookListSerializer(serializers.ModelSerializer):
     category_name = serializers.CharField(source='category.name', read_only=True)
+    # 사용자가 등록한 희망 판매가
+    price = serializers.SerializerMethodField()
 
     class Meta:
         model = Book
-        fields = ['id', 'isbn', 'title', 'author', 'cover_url', 'category', 'category_name', 'loan_count']
+        fields = [
+            'id', 'isbn', 'title', 'author', 'cover_url', 
+            'category', 'category_name', 'loan_count', 'price' # price 추가
+        ]
+
+    def get_price(self, obj):
+        request = self.context.get('request')
+        if request and request.user.is_authenticated:
+            # 중개 모델에서 현재 유저가 이 책에 대해 등록한 판매가 조회
+            stock = UserBookStock.objects.filter(user=request.user, book=obj).first()
+            if stock:
+                return stock.selling_price
+        return 0 # 등록된 가격이 없으면 0원
 
 # 2. AI 추천 목록 전용 (홈 화면의 추천 섹션에서 사용)
 class RecommendationSerializer(serializers.ModelSerializer):
