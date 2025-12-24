@@ -5,7 +5,7 @@ from rest_framework.permissions import AllowAny
 from rest_framework.pagination import PageNumberPagination
 from django.shortcuts import get_object_or_404
 from django.db.models import Q
-from .models import Book, Recommendation, Category, Library
+from .models import Book, Recommendation, Category, Library, UserBookStock
 from .serializers import RecommendationSerializer, BookSerializer, BookListSerializer, CategorySerializer, LibrarySerializer 
 from .utils import generate_ai_recommendations
 
@@ -117,18 +117,35 @@ class BookListView(APIView):
         return paginator.get_paginated_response(serializer.data)
 
 # 도서 정보 상세 조회 
+# 도서 정보 상세 조회 
 class BookDetailView(APIView):
-    # 비로그인 유저도 접근할 수 있도록 권한 설정 추가
     permission_classes = [AllowAny]
 
     def get(self, request, isbn):
         try:
-            # ISBN13 기준으로 도서 조회
+            # 1. 책 정보 가져오기
             book = Book.objects.get(isbn=isbn)
             
-            # 상세용 시리얼라이저 사용
+            # 2. 기존 시리얼라이저로 기본 데이터 생성
             serializer = BookSerializer(book, context={'request': request})
-            return Response(serializer.data)
+            
+            # 3. 시리얼라이저 결과(딕셔너리)를 변수에 담기
+            data = serializer.data
+            
+            # 4. 로그인한 유저의 판매 가격(my_price) 계산 로직 추가
+            my_price = 0
+            user = request.user
+            if user.is_authenticated:
+                # UserBookStock 모델에서 이 유저가 이 책에 매긴 가격 찾기
+                stock = UserBookStock.objects.filter(user=user, book=book).first()
+                if stock:
+                    my_price = stock.selling_price
+            
+            # 5. [중요] 기존 데이터 뭉치에 my_price를 강제로 끼워넣기
+            data['my_price'] = my_price
+            
+            # 6. 합쳐진 전체 데이터를 반환
+            return Response(data)
             
         except Book.DoesNotExist:
             return Response(
