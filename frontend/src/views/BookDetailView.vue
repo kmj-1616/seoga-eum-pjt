@@ -19,19 +19,32 @@
           <button @click="toggleAction('wish')" :class="['btn-classic', 'btn-wish', { active: book.is_wish }]">
             <i class="icon">{{ book.is_wish ? '❤️' : '🤍' }}</i> 구매 원해요
           </button>
-        </div> <transition name="fade-slide">
+        </div> 
+        <transition name="fade-slide">
           <div v-if="book.is_owned" class="selling-input-card">
-            <p class="input-label">📜 희망 판매 가격을 적어주세요</p>
-            <div class="input-group">
-              <input 
-                type="number" 
-                v-model="sellingPrice" 
-                placeholder="가격을 입력" 
-                class="price-field"
-              />
-              <span class="currency">원</span>
-              <button @click="registerPrice" class="btn-save">등록</button>
+            
+            <div v-if="!isPriceRegistered">
+              <p class="input-label">📜 희망 판매 가격을 적어주세요</p>
+              <div class="input-group">
+                <input 
+                  type="number" 
+                  v-model="sellingPrice" 
+                  placeholder="가격을 입력" 
+                  class="price-field"
+                />
+                <span class="currency">원</span>
+                <button @click="registerPrice" class="btn-save">등록</button>
+              </div>
             </div>
+
+            <div v-else class="registered-price-view">
+              <p class="input-label">✅ 등록된 판매 가격</p>
+              <div class="price-display">
+                <span class="final-price">{{ sellingPrice.toLocaleString() }}원</span>
+                <button @click="editPrice" class="btn-edit-small">수정하기</button>
+              </div>
+            </div>
+
           </div>
         </transition>
 
@@ -129,32 +142,39 @@ const book = ref(null)
 
 // --- [추가] 새로운 상태 변수 선언 ---
 const sellingPrice = ref(null) // 판매자가 입력할 가격
+const isPriceRegistered = ref(false) // 가격 등록 여부
 const owners = ref([])         // 이 책을 가진 사람들 목록
+
+// BookDetailView.vue
 
 const fetchBookDetail = async () => {
   try {
-    const token = localStorage.getItem('access_token')
-    const headers = {}
-    if (token && token !== 'null') headers.Authorization = `Bearer ${token}`
+    const token = localStorage.getItem('access_token');
+    const headers = token ? { Authorization: `Bearer ${token}` } : {};
 
-    const lat = localStorage.getItem('user_lat')
-    const lon = localStorage.getItem('user_lon')
-
-    const response = await axios.get(`http://127.0.0.1:8000/api/v1/books/${route.params.isbn}/`, { 
-      headers,
-      params: { lat, lon }
-    })
+    const response = await axios.get(
+      `http://127.0.0.1:8000/api/v1/books/${route.params.isbn}/`, 
+      { headers }
+    );
     
-    book.value = response.data
+    book.value = response.data;
 
-    // --- [추가] 상세 로드 시 이미 위시 상태라면 목록도 바로 가져옴 ---
-    if (book.value.is_wish) {
-      fetchOwners()
+    // 1. 내가 등록한 가격이 있다면 입력창 닫기 (이미 구현된 부분)
+    if (book.value.my_price && book.value.my_price > 0) {
+      sellingPrice.value = book.value.my_price;
+      isPriceRegistered.value = true;
     }
+
+    // 2. [핵심 수정] 이미 '구매 원해요'가 눌러진 상태라면 자동으로 이웃 목록 가져오기
+    if (book.value.is_wish) {
+      console.log("이미 관심 도서입니다. 이웃 목록을 자동으로 불러옵니다.");
+      fetchOwners(); // <-- 여기서 함수를 실행해줘야 새로고침 없이 바로 보입니다!
+    }
+
   } catch (err) {
-    console.error("데이터 로드 실패:", err)
+    console.error("데이터 로드 실패:", err);
   }
-}
+};
 
 // --- [추가] 가격 등록 함수 ---
 const registerPrice = async () => {
@@ -167,29 +187,41 @@ const registerPrice = async () => {
       { headers: { Authorization: `Bearer ${token}` } }
     )
     alert("서책의 가치가 등록되었습니다.")
+    isPriceRegistered.value = true
   } catch (err) {
     console.error("가격 등록 실패:", err)
     alert("등록 중 오류가 발생했습니다.")
   }
 }
-
+const editPrice = () => {
+  isPriceRegistered.value = false
+}
 // --- [추가] 소장 중인 이웃 목록 가져오기 ---
 const fetchOwners = async () => {
   try {
-    // 동료분이 만들 백엔드 주소 (예: /books/{isbn}/owners/)
-    const res = await axios.get(`http://127.0.0.1:8000/api/v1/books/${book.value.isbn}/owners/`)
-    owners.value = res.data
+    // 1. 로컬 스토리지에서 토큰 가져오기
+    const token = localStorage.getItem('access_token');
+    
+    // 2. headers 변수를 먼저 정의합니다. (에러 해결 핵심!)
+    const headers = {};
+    if (token && token !== 'null') {
+      headers.Authorization = `Bearer ${token}`;
+    }
 
-    // [테스트용 더미 데이터] 동료분이 API 완성하기 전까지 화면 확인용
-    // owners.value = [
-    //   { id: 101, nickname: '한양선비', price: 12000 },
-    //   { id: 102, nickname: '책벌레', price: 9500 },
-    // ]
+    // 3. axios 요청 시 정의한 headers를 전달합니다.
+    const res = await axios.get(
+      `http://127.0.0.1:8000/api/v1/books/${book.value.isbn}/owners/`, 
+      { headers } // 이제 headers가 정의되었으므로 에러가 나지 않습니다.
+    );
+    
+    console.log("이웃 목록 로드 성공:", res.data);
+    owners.value = res.data;
+    
   } catch (err) {
-    console.error("소유자 목록 로드 실패:", err)
+    // 이제 ReferenceError 대신 실제 통신 에러가 있다면 잡힐 것입니다.
+    console.error("소유자 목록 로드 실패:", err);
   }
-}
-
+};
 // --- [추가] 채팅방으로 이동하는 함수 ---
 const goToChat = async (owner) => {
   const token = localStorage.getItem('access_token')
@@ -494,5 +526,38 @@ onMounted(fetchBookDetail)
 
 .owner-lib {
   font-style: normal;
+}
+
+.registered-price-view {
+  text-align: center;
+}
+
+.price-display {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #fdfaf5;
+  padding: 10px;
+  border-radius: 4px;
+}
+
+.final-price {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #81532e;
+}
+
+.btn-edit-small {
+  background: transparent;
+  border: 1px solid #d1b894;
+  color: #d1b894;
+  padding: 4px 8px;
+  font-size: 0.8rem;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.btn-edit-small:hover {
+  background: #f5ece0;
 }
 </style>

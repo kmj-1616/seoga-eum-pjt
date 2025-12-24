@@ -174,15 +174,22 @@ def register_price(request, isbn):
 @api_view(['GET'])
 @permission_classes([AllowAny])
 def get_owners(request, isbn):
-    """
-    해당 책을 소장하고 가격을 등록한 이웃 목록 + 도서관 정보를 반환합니다.
-    """
     try:
-        # UserBookStock에서 해당 ISBN을 가진 데이터 조회 (유저 정보 포함)
-        owners_stock = UserBookStock.objects.filter(
+        # 1. 가격이 0보다 큰 모든 데이터 가져오기 (필터링 전)
+        queryset = UserBookStock.objects.filter(
             book__isbn=isbn, 
             selling_price__gt=0
-        ).select_related('user')
+        )
+        
+        print(f"--- 전체 소장 데이터 개수: {queryset.count()} ---")
+        print(f"--- 현재 요청 유저: {request.user} (인증여부: {request.user.is_authenticated}) ---")
+
+        # 2. 본인 제외 (유저가 인증된 경우에만 수행)
+        if request.user.is_authenticated:
+            queryset = queryset.exclude(id__in=UserBookStock.objects.filter(user=request.user, book__isbn=isbn))
+            print(f"--- 본인 제외 후 개수: {queryset.count()} ---")
+            
+        owners_stock = queryset.select_related('user')
         
         results = []
         for s in owners_stock:
@@ -190,11 +197,11 @@ def get_owners(request, isbn):
                 'id': s.user.id,
                 'nickname': s.user.nickname,
                 'price': s.selling_price,
-                # 유저 모델의 favorite_libraries 필드 추가
                 'libraries': s.user.favorite_libraries 
             })
             
         return Response(results, status=status.HTTP_200_OK)
         
     except Exception as e:
+        print(f"에러 발생: {e}")
         return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
