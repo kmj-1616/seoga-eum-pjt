@@ -150,7 +150,28 @@
       <div v-else class="empty-shelf">아직 참여한 소통창이 없습니다.</div>
     </section>
 
-<section v-else class="empty-state">해당 서비스는 준비 중입니다.</section>
+    <section class="shelf-section" v-else-if="currentTab === 'trade'">
+      <h3 class="section-title">거래 소통창</h3>
+      <div v-if="tradeRooms.length > 0" class="shelf-grid">
+        <div v-for="room in tradeRooms" :key="room.id" class="shelf-card">
+          <div class="shelf-info">
+            <h4 class="shelf-book-title">{{ room.book_title }}</h4>
+            <p class="shelf-book-author">상대방: {{ room.opponent_nickname }}</p>
+            <div class="shelf-badges">
+              <span class="badge" :class="room.status.toLowerCase()">
+                {{ room.status === 'REQUESTED' ? '거래 요청' : 
+                  room.status === 'LIBRARY_STORED' ? '보관 중' : '거래 완료' }}
+              </span>
+            </div>
+          </div>
+          <button class="sell-btn" @click="$router.push(`/trade/chat/${room.id}`)">
+            소통하기
+          </button>
+        </div>
+      </div>
+      <div v-else class="empty-shelf">진행 중인 거래가 없습니다.</div>
+    </section>
+
   </div>
 
   <div v-else class="loading-state">
@@ -184,7 +205,7 @@
 
 <script setup>
 import { useRouter } from 'vue-router'
-import { ref, onMounted, reactive } from 'vue'
+import { ref, onMounted, reactive, watch } from 'vue'
 import axios from 'axios'
 
 const router = useRouter()
@@ -195,7 +216,7 @@ const myActivities = ref([])
 const tabs = [
   { id: 'shelf', name: '나의 서가', icon: '📱' },
   { id: 'activity', name: '나의 소통', icon: '💭' },
-  { id: 'history', name: '거래 내역', icon: '👜' }
+  { id: 'trade', name: '나의 거래', icon: '👜' }
 ]
 
 // --- 수정 모달 및 도서관 검색 관련 상태 ---
@@ -381,6 +402,27 @@ const handlePriceUpdate = async () => {
     alert(err.response?.data?.error || "수정 중 오류가 발생했습니다.")
   }
 }
+
+const tradeRooms = ref([]);
+
+const fetchMyTradeRooms = async () => {
+  const token = localStorage.getItem('access_token');
+  try {
+    const res = await axios.get('http://127.0.0.1:8000/api/v1/community/trade/rooms/', {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    tradeRooms.value = res.data;
+  } catch (err) {
+    console.error("거래 목록 로드 실패", err);
+  }
+};
+
+// 탭 클릭 시 데이터 로드
+watch(currentTab, (newTab) => {
+  if (newTab === 'trade') {
+    fetchMyTradeRooms();
+  }
+});
 </script>
 
 <style scoped>

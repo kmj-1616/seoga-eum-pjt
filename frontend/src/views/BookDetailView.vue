@@ -180,13 +180,14 @@ const registerPrice = async () => {
   if (!sellingPrice.value) return alert("희망 가격을 입력해주세요.")
   const token = localStorage.getItem('access_token')
   try {
-    // 동료분이 만들 백엔드 주소에 맞게 수정 필요
     await axios.post(`http://127.0.0.1:8000/api/v1/books/${book.value.isbn}/register-price/`, 
       { price: sellingPrice.value },
       { headers: { Authorization: `Bearer ${token}` } }
     )
     alert("서책의 가치가 등록되었습니다.")
     isPriceRegistered.value = true
+    // 현재 데이터 상태도 동기화
+    book.value.my_price = sellingPrice.value 
   } catch (err) {
     console.error("가격 등록 실패:", err)
     alert("등록 중 오류가 발생했습니다.")
@@ -223,17 +224,23 @@ const fetchOwners = async () => {
 // --- [추가] 채팅방으로 이동하는 함수 ---
 const goToChat = async (owner) => {
   const token = localStorage.getItem('access_token')
+  if (!token) {
+    alert("로그인이 필요합니다.")
+    return
+  }
+  
   try {
-    // 1. 여기서 백엔드에 '거래 생성' 요청을 보내 trade_id를 받아와야 함
-    // const res = await axios.post(`http://127.0.0.1:8000/api/v1/trades/create/`, {
-    //   seller_id: owner.id,
-    //   isbn: book.value.isbn
-    // }, { headers: { Authorization: `Bearer ${token}` } })
+    const res = await axios.post(
+      `http://127.0.0.1:8000/api/v1/community/trade/create/${book.value.isbn}/`,
+      {}, // POST 바디 (현재 백엔드 로직은 URL의 ISBN 사용)
+      { headers: { Authorization: `Bearer ${token}` } }
+    )
     
-    // 2. 받은 trade_id로 이동 (지금은 임시 1번)
-    router.push({ name: 'trade-chat', params: { trade_id: 1 } })
+    // 백엔드에서 넘겨준 실제 trade_id로 이동
+    router.push({ name: 'trade-chat', params: { trade_id: res.data.trade_id } })
   } catch (err) {
-    alert("대화방을 열 수 없습니다.")
+    console.error("대화방 생성 실패:", err)
+    alert(err.response?.data?.error || "대화방을 열 수 없습니다.")
   }
 }
 
@@ -269,6 +276,31 @@ const toggleAction = async (actionType) => {
     }
   }
 } 
+
+const startTrade = async () => {
+  const token = localStorage.getItem('access_token')
+  if (!token) {
+    alert("로그인이 필요한 서비스입니다.")
+    router.push('/login')
+    return
+  }
+
+  try {
+    // API 호출 (현재 상세페이지의 book.isbn 사용)
+    const res = await axios.post(
+      `http://127.0.0.1:8000/api/v1/community/trade/create/${book.value.isbn}/`,
+      {},
+      { headers: { Authorization: `Bearer ${token}` } }
+    )
+    
+    // 생성되거나 찾아진 trade_id로 바로 이동
+    router.push(`/trade/chat/${res.data.trade_id}`)
+    
+  } catch (err) {
+    console.error("채팅방 생성 실패:", err)
+    alert(err.response?.data?.error || "거래 요청 중 오류가 발생했습니다.")
+  }
+}
 
 onMounted(fetchBookDetail)
 </script>

@@ -2,10 +2,11 @@ from rest_framework import generics, permissions
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import permissions
+from django.db.models import Q
 from django.shortcuts import get_object_or_404
 from books.models import Book
-from .models import ChatMessage
-from .serializers import ChatMessageSerializer
+from .models import ChatMessage, TradeChatRoom, TradeMessage
+from .serializers import ChatMessageSerializer, TradeMessageSerializer, TradeChatRoomSerializer
 from books.serializers import BookListSerializer
 from django.db.models import Count, OuterRef, Subquery
 
@@ -63,3 +64,62 @@ class ActiveCommunityListView(APIView):
         } for b in active_books]
         
         return Response(data)
+    
+class TradeMessageView(APIView):
+    def get(self, request, trade_id):
+        messages = TradeMessage.objects.filter(room_id=trade_id).order_by('created_at')
+        serializer = TradeMessageSerializer(messages, many=True)
+        return Response(serializer.data)
+
+    def post(self, request, trade_id):
+        room = TradeChatRoom.objects.get(id=trade_id)
+        serializer = TradeMessageSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save(sender=request.user, room=room)
+            return Response(serializer.data, status=201)
+        return Response(serializer.errors, status=400)
+    
+class MyTradeChatRoomListView(generics.ListAPIView):
+    """현재 유저가 참여 중인 1:1 거래 채팅방 목록 조회"""
+    serializer_class = TradeChatRoomSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+        # 내가 판매자이거나 구매자인 방을 모두 찾음
+        return TradeChatRoom.objects.filter(
+            Q(seller=user) | Q(buyer=user)
+        ).select_related('book', 'seller', 'buyer').order_by('-created_at')
+    
+class CreateTradeRoomView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, isbn):
+        # 1. 해당 도서와 소장자(판매자) 정보 확인
+        book = get_object_or_404(Book, isbn=isbn)
+        
+        # 소장자 찾기 (UserBookStock 모델 기준)
+        # 만약 여러 명이라면 특정 판매자를 지정해야 하나, 여기서는 예시로 첫 번째 소장자를 타겟팅합니다.
+        seller_stock = book.userbookstock_set.first() 
+        if not seller_stock:
+            return Response({"error": "소장자가 없는 도서입니다."}, status=400)
+        
+        seller = seller_stock.user
+        buyer = request.user
+
+        if seller == buyer:
+            return Response({"error": "본인의 도서는 구매할 수 없습니다."}, status=400)
+
+        # 2. 이미 두 사람 사이에 이 책으로 만든 방이 있는지 확인
+        room, created = TradeChatRoom.objects.get_or_create(
+            book=book,
+            seller=seller,
+            buyer=buyer,
+            defaults={'status': 'REQUESTED'}
+        )
+
+        # 3. 방 ID 반환
+        return Response({
+            "trade_id": room.id,
+            "message": "채팅방이 생성되었습니다." if created else "기존 채팅방으로 이동합니다."
+        }, status=201 if created else 200)
