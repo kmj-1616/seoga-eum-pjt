@@ -41,17 +41,24 @@ const router = createRouter({
     component: () => import('../views/CommunityView.vue'),
     },
     {
-    path: '/community/:isbn',
-    name: 'community',
-    component: () => import('../views/CommunityView.vue') // 실제 커뮤니티 뷰 파일 경로
-    },
-    {
     path: '/trade/chat/:trade_id',
     name: 'trade-chat',
     component: () => import('../views/TradeChatView.vue'),
     meta: { requiresAuth: true } // 로그인한 사용자만 접근 가능
     },
-  ]
+  ],
+  scrollBehavior(to, from, savedPosition) {
+    // 사용자가 브라우저 뒤로가기를 눌렀을 때는 이전 위치를 유지하고,
+    // 그 외에 새로운 페이지로 이동할 때는 항상 최상단(0, 0)으로 보냅니다.
+    if (savedPosition) {
+      return savedPosition;
+    } else {
+      return {
+        top: 0,
+        behavior: 'smooth'
+       };
+    }
+  },
 })
 
 router.beforeEach((to, from, next) => {

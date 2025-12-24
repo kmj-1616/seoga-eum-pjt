@@ -333,8 +333,6 @@ const ageGroupMap = {
 @import url('https://fonts.googleapis.com/css2?family=Hahmlet:wght@300;400;500;600;700&display=swap');
 
 .profile-outer-container {
-  background-color: #fdfaf5;
-  background-image: url('https://www.toptal.com/designers/subtlepatterns/uploads/paper.png');
   min-height: 100vh;
   padding: 60px 0;
   font-family: 'Hahmlet', serif;

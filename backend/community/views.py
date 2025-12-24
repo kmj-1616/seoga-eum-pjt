@@ -7,7 +7,7 @@ from books.models import Book
 from .models import ChatMessage
 from .serializers import ChatMessageSerializer
 from books.serializers import BookListSerializer
-from django.db.models import Count
+from django.db.models import Count, OuterRef, Subquery
 
 
 # 함께 읽어요 채팅: 조회는 누구나, 생성은 로그인한 유저만 
@@ -39,20 +39,27 @@ class MyActivityListView(APIView):
         return Response(serializer.data)
 
 class ActiveCommunityListView(APIView):
-    permission_classes = [permissions.AllowAny] # 누구나 볼 수 있게
+    permission_classes = [permissions.AllowAny]
 
     def get(self, request):
-        # 채팅 메시지가 많은 순으로 3개 추출
+        # 1. 각 도서(Book)의 PK와 연결된 메시지 중 가장 최근 것 1개의 내용(content)만 추출
+        latest_msg = ChatMessage.objects.filter(
+            book=OuterRef('pk')
+        ).order_by('-created_at').values('content')[:1]
+
+        # 2. 책 목록을 가져오면서 위 서브쿼리를 'last_message'라는 이름으로 붙임
         active_books = Book.objects.annotate(
             message_count=Count('messages'),
-            user_count=Count('messages__user', distinct=True)
+            user_count=Count('messages__user', distinct=True),
+            last_message_content=Subquery(latest_msg) 
         ).filter(message_count__gt=0).order_by('-message_count')[:3]
         
         data = [{
             'isbn': b.isbn,
             'title': b.title,
             'message_count': b.message_count,
-            'user_count': b.user_count
+            'user_count': b.user_count,
+            'last_message': b.last_message_content 
         } for b in active_books]
         
         return Response(data)

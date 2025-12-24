@@ -3,11 +3,11 @@
     <div class="chat-container">
       <header class="chat-header">
         <button class="back-btn" @click="$router.back()">
-          <span class="arrow">←</span> 거래 목록으로 돌아가기
+          <span class="arrow">←</span> 이전으로 돌아가기
         </button>
         <div class="book-context">
-          <h2 class="community-title">거래 대화함</h2>
-          <p class="community-subtitle">안전하고 따뜻한 거래를 위해 예의를 지켜주세요.</p>
+          <h2 class="community-title">서책 거래 소통창</h2>
+          <p class="community-subtitle">「{{ bookInfo.title }}」 도서를 위한 안전하고 따뜻한 공간</p>
         </div>
       </header>
 
@@ -15,7 +15,7 @@
         <section class="chat-window">
           <div class="message-list" ref="messageBox">
             <div v-if="!messages || messages.length === 0" class="no-messages">
-              판매자/구매자와 대화를 시작해보세요.
+              판매자/구매자와 따뜻한 인사를 나누며 대화를 시작해보세요.
             </div>
             
             <div v-for="(msg, index) in messages" :key="msg?.id || index">
@@ -56,6 +56,7 @@
         </section>
 
         <aside class="chat-sidebar">
+          <h3 class="sidebar-title">거래 도서 정보</h3>
           <TransactionInfo 
             v-if="bookInfo.title"
             :book-title="bookInfo.title"
@@ -70,7 +71,7 @@
           />
           
           <div class="sidebar-footer-notice">
-            <p>💡 상대방이 도서관 보관함에 책을 넣으면 '수령 완료' 버튼이 활성화됩니다.</p>
+            <p>💡 상대방이 도서관 보관함에 책을 넣으면 '수령 완료' 버튼이 활성화됩니다. 수령 후 버튼을 눌러주세요.</p>
           </div>
         </aside>
       </div>
@@ -204,35 +205,152 @@ onUnmounted(() => clearInterval(pollInterval));
 </script>
 
 <style scoped>
-/* 기존 커뮤니티 채팅 스타일과 거의 동일하게 유지 */
+/* 폰트 및 기본 설정 */
+@import url('https://fonts.googleapis.com/css2?family=Hahmlet:wght@300;400;500;700&display=swap');
+
 .chat-outer-container { 
-  background-color: #fdfaf5; 
-  background-image: url('https://www.toptal.com/designers/subtlepatterns/uploads/paper.png'); 
   min-height: calc(100vh - 85px); 
   font-family: 'Hahmlet', serif; 
   padding: 20px 0; 
 }
-.chat-container { max-width: 1200px; margin: 0 auto; display: flex; flex-direction: column; height: 85vh; padding: 0 20px; }
+
+.chat-container { 
+  max-width: 1200px; 
+  margin: 0 auto; 
+  display: flex; 
+  flex-direction: column; 
+  height: 85vh; 
+  padding: 0 20px; 
+}
+
+/* 헤더 & 이전으로 버튼 스타일 (수정됨) */
+.chat-header { margin-bottom: 20px; }
+.back-btn { 
+  background: none; 
+  border: none; 
+  color: #81532e; 
+  cursor: pointer; 
+  font-size: 16px; 
+  margin-bottom: 12px; 
+  font-family: 'Hahmlet', serif;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0;
+  transition: 0.2s;
+}
+.back-btn:hover { color: #4a3423; transform: translateX(-3px); }
+.community-title { font-size: 26px; font-weight: 700; color: #4a3423; margin: 0; }
+.community-subtitle { font-size: 18px; color: #81532e; margin: 5px 0 0 0; }
+
 .chat-main-layout { display: flex; gap: 20px; flex: 1; overflow: hidden; }
-.chat-window { flex: 2.5; background: white; border: 1px solid #d1b894; display: flex; flex-direction: column; }
-.chat-sidebar { flex: 1.2; background: white; border: 1px solid #d1b894; padding: 25px; overflow-y: auto; }
 
-/* 메시지 스타일 (생략 - 기존과 동일) */
-.message-list { flex: 1; padding: 25px; overflow-y: auto; display: flex; flex-direction: column; gap: 20px; }
-.message-wrapper { display: flex; gap: 10px; max-width: 80%; }
-.my-message { align-self: flex-end; flex-direction: row-reverse; }
-.message-bubble { background: #f8f9fa; padding: 12px; border-radius: 8px; font-size: 15px; border: 1px solid #eee; }
-.my-message .message-bubble { background: #81532e; color: white; border: none; }
+/* 채팅창 스타일 */
+.chat-window { 
+  flex: 2.5; 
+  background: white; 
+  border: 1px solid #d1b894; 
+  display: flex; 
+  flex-direction: column; 
+  box-shadow: 10px 10px 20px rgba(0,0,0,0.03);
+}
 
-.message-input-area { padding: 20px; border-top: 1px solid #eee; display: flex; gap: 10px; }
-textarea { flex: 1; height: 60px; border: 1px solid #ddd; padding: 10px; resize: none; font-family: inherit; }
-.send-btn { background: #81532e; color: white; border: none; padding: 0 25px; cursor: pointer; font-weight: 700; }
+.message-list { 
+  flex: 1; 
+  padding: 30px; 
+  overflow-y: auto; 
+  display: flex; 
+  flex-direction: column; 
+  gap: 24px; 
+}
 
-/* 사이드바 하단 안내 */
-.sidebar-footer-notice { margin-top: 25px; padding: 15px; background: #fff9db; border-radius: 6px; font-size: 12px; color: #856404; line-height: 1.5; }
+/* 메시지 버블 스타일 통일 */
+.message-wrapper { display: flex; gap: 12px; width: 100%; max-width: 85%; }
+.my-message { align-self: flex-end; flex-direction: row-reverse; margin-left: auto; }
+.user-avatar { 
+  width: 40px; height: 40px; background: #f5ece0; border-radius: 50%; 
+  display: flex; align-items: center; justify-content: center; 
+  color: #81532e; font-weight: 700; border: 1px solid #d1b894; flex-shrink: 0; 
+}
+.message-content-group { display: flex; flex-direction: column; }
+.my-message .message-content-group { align-items: flex-end; }
+.user-nickname { font-size: 13px; color: #6d5d50; margin-bottom: 6px; font-weight: 500; }
+.message-bubble-row { display: flex; align-items: flex-end; gap: 8px; }
+.my-message .message-bubble-row { flex-direction: row-reverse; }
+.message-bubble { 
+  background: #fdfcfb; border: 1px solid #f5ece0; 
+  padding: 12px 18px; border-radius: 4px; /* 각진 사각형 스타일 */
+  color: #4a3423; line-height: 1.6; font-size: 15px; 
+}
+.my-message .message-bubble { background: #81532e; color: #fdfaf5; border: none; }
+.message-time { font-size: 11px; color: #c4b5a6; flex-shrink: 0; }
+
+.message-input-area { 
+  padding: 20px; 
+  border-top: 1px solid #f5ece0; 
+  display: flex; 
+  gap: 12px; 
+  background: #fdfcfb; 
+  align-items: stretch; 
+}
+textarea { 
+  flex: 1; 
+  height: 70px; 
+  border: 1px solid #d1b894; 
+  padding: 12px; 
+  resize: none; 
+  font-family: 'Hahmlet', serif; 
+  font-size: 15px; 
+  outline: none; 
+  box-sizing: border-box; 
+  margin: 0; 
+  background: white;
+}
+.send-btn { 
+  background: #81532e; 
+  color: white; 
+  border: none; 
+  padding: 0 30px; 
+  cursor: pointer; 
+  border-radius: 2px; 
+  font-family: 'Hahmlet', serif; 
+  font-weight: 600; 
+  font-size: 16px;
+  height: 70px; 
+  box-sizing: border-box; 
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0; 
+  transition: background 0.2s;
+}
+
+.send-btn:hover:not(:disabled) {
+  background: #4a3423;
+}
+
+.send-btn:disabled { 
+  background: #c4b5a6; 
+  cursor: not-allowed; 
+}
+
+.chat-sidebar { 
+  flex: 1.2; background: white; border: 1px solid #d1b894; 
+  padding: 25px; display: flex; flex-direction: column; overflow-y: auto; 
+}
+.sidebar-title { 
+  font-size: 18px; color: #4a3423; margin-bottom: 20px; 
+  border-bottom: 2px solid #f5ece0; padding-bottom: 12px; font-weight: 700;
+}
+.sidebar-footer-notice { 
+  margin-top: auto; padding: 15px; background: #fdfaf5; 
+  border: 1px dashed #d1b894; font-size: 12px; color: #81532e; line-height: 1.5; 
+}
 
 /* 날짜 구분선 스타일 */
-.date-divider { text-align: center; margin: 20px 0; position: relative; }
-.date-divider::before { content: ""; position: absolute; top: 50%; left: 0; right: 0; height: 1px; background: #eee; }
-.date-text { background: #fff; padding: 0 10px; position: relative; font-size: 12px; color: #999; }
+.date-divider { display: flex; align-items: center; justify-content: center; margin: 30px 0 20px; position: relative; }
+.date-divider::before { content: ""; position: absolute; top: 50%; left: 0; right: 0; height: 1px; background-color: #f5ece0; z-index: 1; }
+.date-text { background-color: #fff; padding: 0 15px; font-size: 12px; color: #c4b5a6; z-index: 2; font-weight: 500; }
+
+.no-messages { text-align: center; color: #c4b5a6; margin-top: 50px; font-size: 14px; }
 </style>

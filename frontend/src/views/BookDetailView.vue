@@ -1,5 +1,5 @@
 <template>
-  <div class="detail-outer-container">
+  <div :class="['detail-outer-container', { 'is-loading': !book }]" >
     
     <div class="detail-container" v-if="book">
       <aside class="side-panel">
@@ -157,23 +157,29 @@ onMounted(fetchBookDetail)
 @import url('https://fonts.googleapis.com/css2?family=Hahmlet:wght@400;700&display=swap');
 
 .detail-outer-container {
-  background-color: #fdfaf5;
-  background-image: url('https://www.toptal.com/designers/subtlepatterns/uploads/paper.png');
-  min-height: 100vh;
-  display: flex;         
+  min-height: 100vh; 
+  display: flex;
   flex-direction: column;
   font-family: 'Hahmlet', serif;
 }
 
-.loading-state {
-  flex: 1;               
-  display: flex;
-  justify-content: center; 
-  align-items: center;     
-  padding-bottom: 10vh;    
+.detail-outer-container.is-loading {
+  justify-content: center;
+  align-items: center;
 }
 
-.loading-content {
+.detail-container {
+  flex: 1; 
+  display: flex;
+  gap: 40px;
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 60px 20px; 
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.loading-state {
   text-align: center;
 }
 
@@ -184,14 +190,13 @@ onMounted(fetchBookDetail)
   border-top: 5px solid #81532e;
   border-radius: 50%;
   animation: spin 1s linear infinite;
-  margin: 0 auto 20px;   
+  margin: 0 auto 20px;
 }
 
 .loading-text {
   color: #81532e;
   font-size: 1.2rem;
   font-weight: 500;
-  margin: 0;
 }
 
 @keyframes spin {
@@ -199,15 +204,6 @@ onMounted(fetchBookDetail)
   100% { transform: rotate(360deg); }
 }
 
-.detail-container {
-  display: flex;
-  gap: 40px;
-  max-width: 1100px;
-  margin: 0 auto;
-  padding: 0 20px;
-}
-
-/* 사이드 패널 */
 .side-panel { flex: 0 0 300px; }
 
 .cover-card {
@@ -220,7 +216,6 @@ onMounted(fetchBookDetail)
 
 .book-cover { width: 100%; display: block; }
 
-/* 액션 버튼: 모든 버튼 너비를 100%로 통일 */
 .action-buttons {
   display: flex;
   flex-direction: column;
@@ -228,8 +223,8 @@ onMounted(fetchBookDetail)
 }
 
 .btn-classic {
-  width: 100%; /* 너비 일치 */
-  box-sizing: border-box; /* 패딩 포함 너비 계산 */
+  width: 100%; 
+  box-sizing: border-box; 
   padding: 15px;
   border-radius: 4px;
   border: 1px solid #81532e;
