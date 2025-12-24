@@ -118,12 +118,11 @@
             </h4>
             <p class="shelf-book-author">{{ book.author }}</p>
             <div class="shelf-badges">
-              <span class="badge owned">소장 중</span>
-              <span v-if="book.price" class="badge price">{{ book.price.toLocaleString() }}원</span>
+              <span v-if="book.price" class="badge price">희망 판매가: {{ book.price.toLocaleString() }}원</span>
             </div>
           </div>
-          <button class="sell-btn" :class="{ selling: book.is_selling }">
-            {{ book.is_selling ? '판매 중' : '판매 등록' }}
+          <button class="sell-btn" @click="openPriceEditModal(book)">
+            가치 수정
           </button>
         </div>
       </div>
@@ -157,6 +156,29 @@
   <div v-else class="loading-state">
     <p>신분 확인이 필요합니다.</p>
   </div>
+
+  <div v-if="isPriceEditModalOpen" class="modal-overlay">
+  <div class="signup-container modal-content" style="max-width: 350px;">
+    <h2>가치 수정</h2>
+    <p style="font-size: 14px; color: #666; margin-bottom: 20px; text-align: center;">
+      '{{ selectedBookForEdit?.title }}'의<br>희망 판매 가격을 입력해 주세요.
+    </p>
+    <div class="input-group">
+      <div class="input-group-row" style="align-items: center; border-bottom: 1px solid #d1b894; padding-bottom: 5px;">
+        <input 
+          type="number" 
+          v-model="newPrice" 
+          style="flex: 1; border: none; font-size: 18px; text-align: right; outline: none; background: transparent;"
+        >
+        <span style="margin-left: 10px; font-weight: 600;">원</span>
+      </div>
+    </div>
+    <div class="modal-footer" style="margin-top: 30px;">
+      <button class="btn-cancel" @click="isPriceEditModalOpen = false">취소</button>
+      <button class="signup-submit-btn" @click="handlePriceUpdate">수정 완료</button>
+    </div>
+  </div>
+</div>
   </div>
 </template>
 
@@ -327,6 +349,38 @@ const ageGroupMap = {
   '50s': '50대',
   '60s+': '60대 이상'
 }
+
+// --- 가격 수정 관련 상태 ---
+const isPriceEditModalOpen = ref(false)
+const selectedBookForEdit = ref(null)
+const newPrice = ref(0)
+
+// --- 가격 수정 모달 열기 ---
+const openPriceEditModal = (book) => {
+  selectedBookForEdit.value = book
+  newPrice.value = book.price || 0 
+  isPriceEditModalOpen.value = true
+}
+
+// 가격 수정 실행 (백엔드 register_price API 호출) 
+const handlePriceUpdate = async () => {
+  if (newPrice.value < 0) return alert("가격은 0원 이상이어야 합니다.")
+  
+  const token = localStorage.getItem('access_token') || localStorage.getItem('access')
+  try {
+    await axios.post(`http://127.0.0.1:8000/api/v1/books/${selectedBookForEdit.value.isbn}/register-price/`, 
+      { price: newPrice.value }, 
+      { headers: { Authorization: `Bearer ${token}` } }
+    )
+    
+    alert("서책의 가치가 수정되었습니다.")
+    isPriceEditModalOpen.value = false
+    await fetchMyOwnedBooks() // 수정 후 목록 새로고침
+  } catch (err) {
+    console.error("가격 수정 실패:", err)
+    alert(err.response?.data?.error || "수정 중 오류가 발생했습니다.")
+  }
+}
 </script>
 
 <style scoped>
@@ -402,7 +456,25 @@ const ageGroupMap = {
 .tab-item { flex: 1; padding: 15px; border: none; background: transparent; cursor: pointer; font-family: 'Hahmlet'; font-weight: 600; font-size: 16px;}
 .tab-item.active { background: #81532e; color: #fff; }
 .shelf-card { display: flex; justify-content: space-between; align-items: center; padding: 20px; border: 1px solid #f5ece0; background: white; margin-bottom: 10px; }
-.sell-btn { padding: 10px 18px; border: 1px solid #81532e; background: #fff; color: #81532e; cursor: pointer; font-family: 'Hahmlet'; font-weight: 700; }
+.sell-btn {
+  padding: 8px 15px;
+  background-color: white;
+  color: #81532e;
+  border: 1px solid #81532e;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.2s;
+}
+.sell-btn:hover {
+  background-color: #81532e;
+  color: white;
+}
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
 .user-info-main {
   display: flex;
   align-items: center;
