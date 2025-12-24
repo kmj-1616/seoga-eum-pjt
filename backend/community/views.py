@@ -5,8 +5,8 @@ from rest_framework import permissions
 from django.db.models import Q
 from django.shortcuts import get_object_or_404
 from books.models import Book
-from .models import ChatMessage, TradeChatRoom, TradeMessage
-from .serializers import ChatMessageSerializer, TradeMessageSerializer, TradeChatRoomSerializer
+from .models import ChatMessage, TradeChatRoom, TradeMessage, TradeStatusRequest
+from .serializers import ChatMessageSerializer, TradeMessageSerializer, TradeChatRoomSerializer, TradeStatusRequestSerializer
 from books.serializers import BookListSerializer
 from django.db.models import Count, OuterRef, Subquery
 
@@ -66,18 +66,84 @@ class ActiveCommunityListView(APIView):
         return Response(data)
     
 class TradeMessageView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+    
     def get(self, request, trade_id):
-        messages = TradeMessage.objects.filter(room_id=trade_id).order_by('created_at')
-        serializer = TradeMessageSerializer(messages, many=True)
-        return Response(serializer.data)
+        try:
+            room = TradeChatRoom.objects.get(id=trade_id)
+            
+            # 현재 사용자가 이 거래에 참여 중인지 확인
+            if request.user != room.seller and request.user != room.buyer:
+                return Response(
+                    {"error": "이 거래에 접근할 권한이 없습니다."}, 
+                    status=403
+                )
+            
+            messages = TradeMessage.objects.filter(room_id=trade_id).order_by('created_at')
+            serializer = TradeMessageSerializer(messages, many=True)
+            return Response(serializer.data)
+        except TradeChatRoom.DoesNotExist:
+            return Response({"error": "거래방을 찾을 수 없습니다."}, status=404)
 
     def post(self, request, trade_id):
-        room = TradeChatRoom.objects.get(id=trade_id)
-        serializer = TradeMessageSerializer(data=request.data)
-        if serializer.is_valid():
-            serializer.save(sender=request.user, room=room)
-            return Response(serializer.data, status=201)
-        return Response(serializer.errors, status=400)
+        try:
+            room = TradeChatRoom.objects.get(id=trade_id)
+            # 현재 사용자가 이 거래에 참여 중인지 확인
+            if request.user != room.seller and request.user != room.buyer:
+                return Response({"error": "이 거래에 메시지를 보낼 권한이 없습니다."}, status=403)
+
+            serializer = TradeMessageSerializer(data=request.data)
+            if serializer.is_valid():
+                serializer.save(sender=request.user, room=room)
+                return Response(serializer.data, status=201)
+            return Response(serializer.errors, status=400)
+        except TradeChatRoom.DoesNotExist:
+            return Response({"error": "거래방을 찾을 수 없습니다."}, status=404)
+
+class TradeLocationUpdateView(APIView):
+    """판매자가 거래 장소와 보관함 번호를 설정/수정하는 뷰"""
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def post(self, request, trade_id):
+        try:
+            room = TradeChatRoom.objects.get(id=trade_id)
+            
+            # 현재 사용자가 판매자인지 확인
+            if request.user != room.seller:
+                return Response(
+                    {"error": "판매자만 이 작업을 수행할 수 있습니다."}, 
+                    status=403
+                )
+            
+            # 요청 데이터에서 location과 locker_number 추출
+            location = request.data.get('location')
+            locker_number = request.data.get('locker_number')
+            
+            if not location or not locker_number:
+                return Response(
+                    {"error": "거래 장소와 보관함 번호를 모두 입력해주세요."}, 
+                    status=400
+                )
+            
+            # 거래 장소와 보관함 번호 저장
+            # 저장은 수락(=LIBRARY_STORED) 이후에만 가능
+            if room.status != 'LIBRARY_STORED':
+                return Response({"error": "판매자가 도서관 보관 정보를 입력하려면 먼저 구매자의 보관 요청을 수락해야 합니다."}, status=400)
+
+            room.location = location
+            room.locker_number = locker_number
+            room.save()
+            
+            return Response({
+                "message": "거래 장소 정보가 업데이트되었습니다.",
+                "location": room.location,
+                "locker_number": room.locker_number
+            }, status=200)
+        
+        except TradeChatRoom.DoesNotExist:
+            return Response({"error": "거래방을 찾을 수 없습니다."}, status=404)
+        except Exception as e:
+            return Response({"error": str(e)}, status=500)
     
 class MyTradeChatRoomListView(generics.ListAPIView):
     """현재 유저가 참여 중인 1:1 거래 채팅방 목록 조회"""
@@ -123,3 +189,177 @@ class CreateTradeRoomView(APIView):
             "trade_id": room.id,
             "message": "채팅방이 생성되었습니다." if created else "기존 채팅방으로 이동합니다."
         }, status=201 if created else 200)
+
+class TradeStatusRequestView(APIView):
+    """거래 상태 변경 요청 생성"""
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def post(self, request, trade_id):
+        try:
+            room = TradeChatRoom.objects.get(id=trade_id)
+            
+            # 현재 사용자가 이 거래에 참여 중인지 확인
+            if request.user != room.seller and request.user != room.buyer:
+                return Response(
+                    {"error": "이 거래에 접근할 권한이 없습니다."}, 
+                    status=403
+                )
+            
+            # 변경할 상태
+            new_status = request.data.get('new_status')
+            if not new_status or new_status not in ['LIBRARY_STORED', 'COMPLETED']:
+                return Response({"error": "유효하지 않은 상태입니다."}, status=400)
+
+            # LIBRARY_STORED 요청은 구매자만 생성할 수 있도록 제한
+            if new_status == 'LIBRARY_STORED' and request.user != room.buyer:
+                return Response({"error": "도서관 보관 요청은 구매자만 생성할 수 있습니다."}, status=403)
+            
+            # 기존 대기 중인 요청 확인
+            existing_request = room.status_requests.filter(
+                request_status='PENDING',
+                new_status=new_status
+            ).first()
+            
+            if existing_request:
+                return Response(
+                    {"error": "이미 대기 중인 요청이 있습니다.", "request_id": existing_request.id},
+                    status=400
+                )
+            
+            # 새로운 요청 생성
+            status_request = TradeStatusRequest.objects.create(
+                room=room,
+                requester=request.user,
+                new_status=new_status
+            )
+            
+            serializer = TradeStatusRequestSerializer(status_request)
+            return Response(serializer.data, status=201)
+        except TradeChatRoom.DoesNotExist:
+            return Response({"error": "거래방을 찾을 수 없습니다."}, status=404)
+
+class TradeStatusRequestApprovalView(APIView):
+    """거래 상태 변경 요청 수락/거절"""
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def post(self, request, trade_id, request_id):
+        try:
+            room = TradeChatRoom.objects.get(id=trade_id)
+            status_request = TradeStatusRequest.objects.get(id=request_id, room=room)
+            
+            # 현재 사용자가 이 거래에 참여 중인지 확인
+            if request.user != room.seller and request.user != room.buyer:
+                return Response(
+                    {"error": "이 거래에 접근할 권한이 없습니다."}, 
+                    status=403
+                )
+            
+            # 요청자 자신은 수락/거절할 수 없음
+            if request.user == status_request.requester:
+                return Response(
+                    {"error": "본인의 요청은 수락/거절할 수 없습니다."}, 
+                    status=400
+                )
+            
+            action = request.data.get('action')  # 'accept' 또는 'reject'
+            
+            if action == 'accept':
+                # 상태 변경 수락 - 거래실 상태 업데이트
+                # LIBRARY_STORED의 경우 수락자는 반드시 판매자여야 함
+                if status_request.new_status == 'LIBRARY_STORED' and request.user != room.seller:
+                    return Response({"error": "도서관 보관 요청은 판매자만 수락할 수 있습니다."}, status=403)
+
+                status_request.request_status = 'ACCEPTED'
+                status_request.save()
+
+                # TradeChatRoom의 상태 업데이트
+                room.status = status_request.new_status
+                room.save()
+
+                return Response({
+                    "message": "요청이 수락되었습니다.",
+                    "new_status": room.status,
+                    "request": TradeStatusRequestSerializer(status_request).data
+                }, status=200)
+            
+            elif action == 'reject':
+                # 상태 변경 거절
+                status_request.request_status = 'REJECTED'
+                status_request.save()
+                
+                return Response({
+                    "message": "요청이 거절되었습니다.",
+                    "request": TradeStatusRequestSerializer(status_request).data
+                }, status=200)
+            
+            else:
+                return Response({"error": "유효하지 않은 액션입니다."}, status=400)
+        
+        except TradeChatRoom.DoesNotExist:
+            return Response({"error": "거래방을 찾을 수 없습니다."}, status=404)
+        except TradeStatusRequest.DoesNotExist:
+            return Response({"error": "요청을 찾을 수 없습니다."}, status=404)
+
+class TradeSellerApprovalView(APIView):
+    """판매자가 거래 채팅방에 진입했을 때 거래 상태를 APPROVED로 변경"""
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def post(self, request, trade_id):
+        try:
+            room = TradeChatRoom.objects.get(id=trade_id)
+            
+            # 현재 사용자가 판매자인지 확인
+            if request.user != room.seller:
+                return Response(
+                    {"error": "판매자만 이 작업을 수행할 수 있습니다."}, 
+                    status=403
+                )
+            
+            # 상태가 REQUESTED일 때만 APPROVED로 변경
+            if room.status == 'REQUESTED':
+                room.status = 'APPROVED'
+                room.save()
+                return Response({
+                    "message": "거래가 승인되었습니다.",
+                    "new_status": room.status
+                }, status=200)
+            else:
+                return Response({
+                    "message": f"현재 상태는 {room.get_status_display()}입니다. 이미 처리된 거래입니다.",
+                    "current_status": room.status
+                }, status=200)
+        
+        except TradeChatRoom.DoesNotExist:
+            return Response({"error": "거래방을 찾을 수 없습니다."}, status=404)
+
+class BuyerReceiptCompleteView(APIView):
+    """구매자가 수령을 완료했을 때 거래 상태를 COMPLETED로 변경"""
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def post(self, request, trade_id):
+        try:
+            room = TradeChatRoom.objects.get(id=trade_id)
+            
+            # 현재 사용자가 구매자인지 확인
+            if request.user != room.buyer:
+                return Response(
+                    {"error": "구매자만 이 작업을 수행할 수 있습니다."}, 
+                    status=403
+                )
+            
+            # 상태가 LIBRARY_STORED일 때만 COMPLETED로 변경
+            if room.status == 'LIBRARY_STORED':
+                room.status = 'COMPLETED'
+                room.save()
+                return Response({
+                    "message": "거래가 완료되었습니다.",
+                    "new_status": room.status
+                }, status=200)
+            else:
+                return Response({
+                    "message": f"현재 상태는 {room.get_status_display()}입니다. 수령 완료 처리할 수 없습니다.",
+                    "current_status": room.status
+                }, status=200)
+        
+        except TradeChatRoom.DoesNotExist:
+            return Response({"error": "거래방을 찾을 수 없습니다."}, status=404)

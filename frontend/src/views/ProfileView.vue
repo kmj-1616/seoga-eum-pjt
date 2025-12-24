@@ -162,6 +162,9 @@
                 {{ room.status === 'REQUESTED' ? '거래 요청' : 
                   room.status === 'LIBRARY_STORED' ? '보관 중' : '거래 완료' }}
               </span>
+              <span v-if="room.selling_price" class="badge" style="background-color: #e3f2fd; color: #1976d2; border: 1px solid #90caf9;">
+                {{ room.selling_price.toLocaleString() }}원
+              </span>
             </div>
           </div>
           <button class="sell-btn" @click="$router.push(`/trade/chat/${room.id}`)">
@@ -291,6 +294,7 @@ onMounted(async () => {
   await fetchUserProfile()
   await fetchMyOwnedBooks()
   await fetchMyActivities()
+  await fetchMyTradeRooms()
   try {
     const res = await axios.get('http://127.0.0.1:8000/api/v1/books/categories/')
     genreOptions.value = res.data.map(c => c.name)
@@ -407,13 +411,24 @@ const tradeRooms = ref([]);
 
 const fetchMyTradeRooms = async () => {
   const token = localStorage.getItem('access_token');
+  if (!token) {
+    console.error("토큰이 없습니다.");
+    return;
+  }
+  
   try {
     const res = await axios.get('http://127.0.0.1:8000/api/v1/community/trade/rooms/', {
       headers: { Authorization: `Bearer ${token}` }
     });
-    tradeRooms.value = res.data;
+    
+    // API 응답 구조에 맞게 처리
+    const data = Array.isArray(res.data) ? res.data : (res.data.results || []);
+    tradeRooms.value = data;
+    
+    console.log("거래 목록 로드 완료:", tradeRooms.value);
   } catch (err) {
     console.error("거래 목록 로드 실패", err);
+    tradeRooms.value = [];
   }
 };
 
