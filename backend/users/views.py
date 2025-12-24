@@ -181,13 +181,10 @@ def get_owners(request, isbn):
             selling_price__gt=0
         )
         
-        print(f"--- 전체 소장 데이터 개수: {queryset.count()} ---")
-        print(f"--- 현재 요청 유저: {request.user} (인증여부: {request.user.is_authenticated}) ---")
 
         # 2. 본인 제외 (유저가 인증된 경우에만 수행)
         if request.user.is_authenticated:
             queryset = queryset.exclude(id__in=UserBookStock.objects.filter(user=request.user, book__isbn=isbn))
-            print(f"--- 본인 제외 후 개수: {queryset.count()} ---")
             
         owners_stock = queryset.select_related('user')
         
@@ -203,5 +200,4 @@ def get_owners(request, isbn):
         return Response(results, status=status.HTTP_200_OK)
         
     except Exception as e:
-        print(f"에러 발생: {e}")
         return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

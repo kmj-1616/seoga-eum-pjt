@@ -167,7 +167,6 @@ const fetchBookDetail = async () => {
 
     // 2. [핵심 수정] 이미 '구매 원해요'가 눌러진 상태라면 자동으로 이웃 목록 가져오기
     if (book.value.is_wish) {
-      console.log("이미 관심 도서입니다. 이웃 목록을 자동으로 불러옵니다.");
       fetchOwners(); // <-- 여기서 함수를 실행해줘야 새로고침 없이 바로 보입니다!
     }
 
@@ -214,7 +213,6 @@ const fetchOwners = async () => {
       { headers } // 이제 headers가 정의되었으므로 에러가 나지 않습니다.
     );
     
-    console.log("이웃 목록 로드 성공:", res.data);
     owners.value = res.data;
     
   } catch (err) {
