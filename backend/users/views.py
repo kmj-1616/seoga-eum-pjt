@@ -6,6 +6,9 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from django.contrib.auth.models import update_last_login
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth import authenticate
+from rest_framework.decorators import api_view, permission_classes
+from django.shortcuts import get_object_or_404
+from books.models import Book, UserBookStock
 
 # books 앱의 utils에서 AI 추천 함수 임포트
 from books.utils import generate_ai_recommendations
@@ -135,3 +138,63 @@ class UserLogoutView(APIView):
                 {'error': '로그아웃 처리 중 오류가 발생했습니다.'}, 
                 status=status.HTTP_400_BAD_REQUEST
             )
+        
+# 6. 가격 등록 API
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def register_price(request, isbn):
+    # 1. 해당 도서가 DB에 있는지 확인
+    book = get_object_or_404(Book, isbn=isbn)
+    
+    # 2. 유저와 도서의 소장 관계(중개 모델) 조회
+    # 프론트에서 '소장 중이에요'를 먼저 눌러서 데이터가 생성된 상태여야 함
+    stock = UserBookStock.objects.filter(user=request.user, book=book).first()
+    
+    if not stock:
+        return Response(
+            {'error': "먼저 '소장 중이에요' 버튼을 눌러 도서를 등록해 주세요."}, 
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    # 3. 가격 업데이트
+    price = request.data.get('price')
+    if price is None:
+        return Response({'error': '가격을 입력해주세요.'}, status=status.HTTP_400_BAD_REQUEST)
+        
+    stock.selling_price = price
+    stock.save()
+    
+    return Response({
+        'message': '서책의 가치가 등록되었습니다.',
+        'selling_price': stock.selling_price
+    }, status=status.HTTP_200_OK)
+
+
+# 7. 소장 중인 이웃 목록 조회 API
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def get_owners(request, isbn):
+    """
+    해당 책을 소장하고 가격을 등록한 이웃 목록 + 도서관 정보를 반환합니다.
+    """
+    try:
+        # UserBookStock에서 해당 ISBN을 가진 데이터 조회 (유저 정보 포함)
+        owners_stock = UserBookStock.objects.filter(
+            book__isbn=isbn, 
+            selling_price__gt=0
+        ).select_related('user')
+        
+        results = []
+        for s in owners_stock:
+            results.append({
+                'id': s.user.id,
+                'nickname': s.user.nickname,
+                'price': s.selling_price,
+                # 유저 모델의 favorite_libraries 필드 추가
+                'libraries': s.user.favorite_libraries 
+            })
+            
+        return Response(results, status=status.HTTP_200_OK)
+        
+    except Exception as e:
+        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
