@@ -102,11 +102,8 @@ export default {
 <style scoped>
 @import url('https://fonts.googleapis.com/css2?family=Hahmlet:wght@300;400;500;600;700&display=swap');
 
-/* 전체 배경 */
 .login-outer-container {
-  background-color: #fdfaf5;
-  background-image: url('https://www.toptal.com/designers/subtlepatterns/uploads/paper.png');
-  min-height: calc(100vh - 85px); /* 네브바 높이 제외 */
+  min-height: calc(100vh - 85px); 
   display: flex;
   align-items: center;
   justify-content: center;
@@ -118,7 +115,7 @@ export default {
   width: 90%;
   padding: 40px;
   background-color: white;
-  border: 1px solid #d1b894; /* 고풍스러운 테두리 */
+  border: 1px solid #d1b894; 
   box-shadow: 10px 10px 25px rgba(0,0,0,0.03);
 }
 

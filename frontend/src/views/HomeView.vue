@@ -85,8 +85,19 @@
             <img src="@/assets/search-icon.png" alt="서적" class="book-icon" />
             <h4 class="room-title">{{ room.title }}</h4>
           </div>
+
+          <div class="last-message-box">
+            <p v-if="room.last_message" class="last-message-text">
+              <span class="quote">"</span>{{ room.last_message }}<span class="quote">"</span>
+            </p>
+            <p v-else class="last-message-text empty">새로운 대화를 기다리고 있습니다.</p>
+          </div>
+          
           <div class="room-stats">
-            <span class="stat-item"><img src="@/assets/user-icon.png" alt="참여자" class="user-icon" /> <strong>{{ room.user_count }}</strong>명 참여</span>
+            <span class="stat-item">
+              <img src="@/assets/user-icon.png" alt="참여자" class="user-icon" /> 
+              <strong>{{ room.user_count }}</strong>명 참여
+            </span>
             <span class="stat-item">💬 <strong>{{ room.message_count }}</strong>개 대화</span>
           </div>
         </div>
@@ -181,9 +192,27 @@ const fetchData = async () => {
       console.warn("커뮤니티 API가 아직 준비되지 않아 더미 데이터를 표시합니다.")
       // API 연결 전까지 화면을 확인하기 위한 더미 데이터입니다.
       activeRooms.value = [
-        { isbn: '9788936434120', title: '데미안', user_count: 24, message_count: 156 },
-        { isbn: '9788937460753', title: '1984', user_count: 18, message_count: 89 },
-        { isbn: '9788936433598', title: '채식주의자', user_count: 31, message_count: 203 }
+        { 
+          isbn: '9788936434120', 
+          title: '데미안', 
+          user_count: 24, 
+          message_count: 156,
+          last_message: '태어나려는 자는 하나의 세계를 파괴해야 한다...' // 추가
+        },
+        { 
+          isbn: '9788937460753', 
+          title: '1984', 
+          user_count: 18, 
+          message_count: 89,
+          last_message: '과거를 지배하는 자가 미래를 지배한다.' // 추가
+        },
+        { 
+          isbn: '9788936433598', 
+          title: '채식주의자', 
+          user_count: 31, 
+          message_count: 203,
+          last_message: '이제 아무것도 무섭지 않아요. 내 몸이 나무가 되면요.' // 추가
+        }
       ]
     }
 
@@ -391,13 +420,16 @@ const handleSearch = () => {
 
 .community-card {
   background: white;
-  padding: 25px;
+  padding: 20px 22px; 
   border-radius: 12px;
   box-shadow: 0 4px 15px rgba(0,0,0,0.05);
   border: 1px solid #eee;
   text-align: left;
   cursor: pointer;
   transition: all 0.3s ease;
+  display: flex;
+  flex-direction: column;
+  min-height: 200px; 
 }
 
 .community-card:hover {
@@ -410,12 +442,12 @@ const handleSearch = () => {
   display: flex;
   align-items: center;
   gap: 12px;
-  margin-bottom: 25px;
+  margin-bottom: auto; 
 }
 
 .room-icon {
   font-size: 20px;
-  color: #4a90e2; /* 이미지의 푸른 아이콘 느낌 */
+  color: #4a90e2; 
 }
 
 .room-title {
@@ -426,11 +458,12 @@ const handleSearch = () => {
 }
 
 .room-stats {
+  margin-top: auto; 
   display: flex;
   justify-content: space-between;
   align-items: center;
-  border-top: 1px solid #f5f5f5;
-  padding-top: 15px;
+  border-top: 1px solid #f5ece0;
+  padding-top: 12px;
 }
 
 .stat-item {
@@ -498,5 +531,43 @@ const handleSearch = () => {
   object-fit: contain;
   filter: sepia(50%);
   display: block;      
+}
+
+.last-message-box {
+  background-color: #fdfaf5;
+  border-radius: 6px;
+  padding: 10px 14px; 
+  margin: 15px 0; 
+  position: relative;
+  border-left: 3px solid #d1b894;
+  flex-grow: 0; 
+  display: flex;
+  align-items: center;
+  justify-content: center; 
+}
+
+.last-message-text {
+  font-size: 14px;
+  line-height: 1.5;
+  color: #6d5d50;
+  margin: 0;
+  text-align: center; 
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  font-style: italic;
+}
+
+.last-message-text.empty {
+  color: #c4b5a6;
+  font-style: 13px;
+}
+
+.quote {
+  color: #d1b894;
+  font-weight: bold;
+  font-size: 18px;
+  margin: 0 2px;
 }
 </style>

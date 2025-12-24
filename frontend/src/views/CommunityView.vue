@@ -278,7 +278,7 @@ const activeParticipants = computed(() => {
 .my-account { background: #fdfaf5; padding: 8px; border-radius: 4px; border: 1px solid #f5ece0; margin-bottom: 10px; }
 .my-account .p-name { color: #81532e; }
 .no-messages { text-align: center; color: #c4b5a6; margin-top: 50px; font-size: 14px; }
-.chat-outer-container { background-color: #fdfaf5; background-image: url('https://www.toptal.com/designers/subtlepatterns/uploads/paper.png'); min-height: calc(100vh - 85px); font-family: 'Hahmlet', serif; padding: 20px 0; }
+.chat-outer-container { min-height: calc(100vh - 85px); font-family: 'Hahmlet', serif; padding: 20px 0; }
 .chat-container { max-width: 1200px; margin: 0 auto; display: flex; flex-direction: column; height: 85vh; padding: 0 20px; }
 .chat-header { margin-bottom: 20px; }
 .back-btn { background: none; border: none; color: #81532e; cursor: pointer; font-size: 16px; margin-bottom: 10px; }
