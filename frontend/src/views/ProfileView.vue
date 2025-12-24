@@ -131,7 +131,28 @@
       <div v-else class="empty-shelf">소장 중인 도서가 없습니다.</div>
     </section>
 
-    <section v-else class="empty-state">해당 서비스는 준비 중입니다.</section>
+    <section class="shelf-section" v-else-if="currentTab === 'activity'">
+      <h3 class="section-title">참여 중인 대화방</h3>
+      <div v-if="myActivities.length > 0" class="shelf-grid">
+        <div v-for="book in myActivities" :key="book.id" class="shelf-card">
+          <div class="shelf-info">
+            <h4 class="shelf-book-title" @click="$router.push(`/book/${book.isbn}`)" style="cursor: pointer;">
+              {{ book.title }}
+            </h4>
+            <p class="shelf-book-author">{{ book.author }}</p>
+            <div class="shelf-badges">
+              <span class="badge" style="background-color: #e8f5e9; color: #2e7d32; border: 1px solid #c8e6c9;">참여 중</span>
+            </div>
+          </div>
+          <button class="sell-btn" @click="$router.push(`/community/${book.isbn}`)">
+            입장하기
+          </button>
+        </div>
+      </div>
+      <div v-else class="empty-shelf">아직 참여한 대화방이 없습니다.</div>
+    </section>
+
+<section v-else class="empty-state">해당 서비스는 준비 중입니다.</section>
   </div>
 
   <div v-else class="loading-state">
@@ -149,6 +170,7 @@ const router = useRouter()
 const userInfo = ref(null)
 const ownedBooks = ref([])
 const currentTab = ref('shelf')
+const myActivities = ref([])
 const tabs = [
   { id: 'shelf', name: '나의 서가', icon: '📱' },
   { id: 'activity', name: '나의 활동', icon: '💭' },
@@ -211,9 +233,25 @@ const fetchMyOwnedBooks = async () => {
   }
 }
 
+const fetchMyActivities = async () => {
+  const token = localStorage.getItem('access_token') || localStorage.getItem('access')
+  if (!token) return
+  
+  try {
+    const response = await axios.get('http://127.0.0.1:8000/api/v1/community/my-activities/', {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+    myActivities.value = response.data
+    console.log("활동 데이터 로드 성공:", myActivities.value)
+  } catch (error) {
+    console.error("활동 데이터 로드 실패:", error)
+  }
+}
+
 onMounted(async () => {
   await fetchUserProfile()
   await fetchMyOwnedBooks()
+  await fetchMyActivities()
   try {
     const res = await axios.get('http://127.0.0.1:8000/api/v1/books/categories/')
     genreOptions.value = res.data.map(c => c.name)
