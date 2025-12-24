@@ -19,7 +19,44 @@
           <button @click="toggleAction('wish')" :class="['btn-classic', 'btn-wish', { active: book.is_wish }]">
             <i class="icon">{{ book.is_wish ? '❤️' : '🤍' }}</i> 구매 원해요
           </button>
-        </div>
+        </div> <transition name="fade-slide">
+          <div v-if="book.is_owned" class="selling-input-card">
+            <p class="input-label">📜 희망 판매 가격을 적어주세요</p>
+            <div class="input-group">
+              <input 
+                type="number" 
+                v-model="sellingPrice" 
+                placeholder="가격을 입력" 
+                class="price-field"
+              />
+              <span class="currency">원</span>
+              <button @click="registerPrice" class="btn-save">등록</button>
+            </div>
+          </div>
+        </transition>
+
+        <transition name="fade-slide">
+          <div v-if="book.is_wish" class="owner-list-card">
+            <h4 class="list-title">📍 소장 중인 이웃</h4>
+              <div v-if="owners && owners.length > 0" class="owner-items">
+                <div v-for="owner in owners" :key="owner.id" class="owner-entry">
+                  <div class="owner-info">
+                    <div class="main-info">
+                      <span class="owner-name">{{ owner.nickname }}</span>
+                      <span class="owner-price">{{ owner.price.toLocaleString() }}원</span>
+                    </div>
+                    <div class="sub-info">
+                      <i class="icon-small">🏛️</i> 
+                      <span class="owner-lib">{{ owner.libraries }}</span>
+                    </div>
+                  </div>
+                  <button @click="goToChat(owner)" class="btn-tiny-chat">대화하기</button>
+                </div>
+              </div>
+              <p v-else class="no-owner">현재 소장 중인 이웃이 없습니다.</p>
+          </div>
+        </transition>
+
       </aside>
 
       <main class="main-content">
@@ -90,61 +127,114 @@ const route = useRoute()
 const router = useRouter()
 const book = ref(null)
 
+// --- [추가] 새로운 상태 변수 선언 ---
+const sellingPrice = ref(null) // 판매자가 입력할 가격
+const owners = ref([])         // 이 책을 가진 사람들 목록
+
 const fetchBookDetail = async () => {
   try {
     const token = localStorage.getItem('access_token')
     const headers = {}
     if (token && token !== 'null') headers.Authorization = `Bearer ${token}`
 
-    // 1. localStorage에서 저장된 위치 정보 가져오기
-    // 로그인 시 저장하지 않았을 경우를 대비해 null 처리
     const lat = localStorage.getItem('user_lat')
     const lon = localStorage.getItem('user_lon')
 
-    // 2. API 호출 시 params에 위치 정보 실어 보내기
-    // 백엔드 utils.py의 get_library_full_status에서 user_lat, user_lon으로 활용됩니다.
     const response = await axios.get(`http://127.0.0.1:8000/api/v1/books/${route.params.isbn}/`, { 
       headers,
-      params: { 
-        lat: lat, 
-        lon: lon 
-      }
+      params: { lat, lon }
     })
     
     book.value = response.data
+
+    // --- [추가] 상세 로드 시 이미 위시 상태라면 목록도 바로 가져옴 ---
+    if (book.value.is_wish) {
+      fetchOwners()
+    }
   } catch (err) {
     console.error("데이터 로드 실패:", err)
   }
 }
 
+// --- [추가] 가격 등록 함수 ---
+const registerPrice = async () => {
+  if (!sellingPrice.value) return alert("희망 가격을 입력해주세요.")
+  const token = localStorage.getItem('access_token')
+  try {
+    // 동료분이 만들 백엔드 주소에 맞게 수정 필요
+    await axios.post(`http://127.0.0.1:8000/api/v1/books/${book.value.isbn}/register-price/`, 
+      { price: sellingPrice.value },
+      { headers: { Authorization: `Bearer ${token}` } }
+    )
+    alert("서책의 가치가 등록되었습니다.")
+  } catch (err) {
+    console.error("가격 등록 실패:", err)
+    alert("등록 중 오류가 발생했습니다.")
+  }
+}
+
+// --- [추가] 소장 중인 이웃 목록 가져오기 ---
+const fetchOwners = async () => {
+  try {
+    // 동료분이 만들 백엔드 주소 (예: /books/{isbn}/owners/)
+    const res = await axios.get(`http://127.0.0.1:8000/api/v1/books/${book.value.isbn}/owners/`)
+    owners.value = res.data
+
+    // [테스트용 더미 데이터] 동료분이 API 완성하기 전까지 화면 확인용
+    // owners.value = [
+    //   { id: 101, nickname: '한양선비', price: 12000 },
+    //   { id: 102, nickname: '책벌레', price: 9500 },
+    // ]
+  } catch (err) {
+    console.error("소유자 목록 로드 실패:", err)
+  }
+}
+
+// --- [추가] 채팅방으로 이동하는 함수 ---
+const goToChat = async (owner) => {
+  const token = localStorage.getItem('access_token')
+  try {
+    // 1. 여기서 백엔드에 '거래 생성' 요청을 보내 trade_id를 받아와야 함
+    // const res = await axios.post(`http://127.0.0.1:8000/api/v1/trades/create/`, {
+    //   seller_id: owner.id,
+    //   isbn: book.value.isbn
+    // }, { headers: { Authorization: `Bearer ${token}` } })
+    
+    // 2. 받은 trade_id로 이동 (지금은 임시 1번)
+    router.push({ name: 'trade-chat', params: { trade_id: 1 } })
+  } catch (err) {
+    alert("대화방을 열 수 없습니다.")
+  }
+}
+
+// --- [수정] 기존 toggleAction 함수 ---
 const toggleAction = async (actionType) => {
   const token = localStorage.getItem('access_token')
   
-  // 1. 비로그인 상태 체크
   if (!token || token === 'null') {
     if (confirm("신분 확인이 필요한 서비스입니다. 페이지로 이동하시겠습니까?")) {
-      router.push({ 
-        path: '/login', 
-        query: { redirect: route.fullPath } 
-      })
+      router.push({ path: '/login', query: { redirect: route.fullPath } })
     }
     return; 
   }
 
-  // 2. 로그인 된 상태일 때만 실행되는 로직
   try {
-    const response = await axios.post(`http://127.0.0.1:8000/api/v1/books/${book.value.isbn}/action/${actionType}/`, {}, {
+    await axios.post(`http://127.0.0.1:8000/api/v1/books/${book.value.isbn}/action/${actionType}/`, {}, {
       headers: { Authorization: `Bearer ${token}` }
     })
     
-    if (actionType === 'wish') book.value.is_wish = !book.value.is_wish
-    else if (actionType === 'owned') book.value.is_owned = !book.value.is_owned
+    if (actionType === 'wish') {
+      book.value.is_wish = !book.value.is_wish
+      // [수정] 위시리스트 체크 시 소유자 목록을 뿅 하고 가져옴
+      if (book.value.is_wish) fetchOwners()
+    } else if (actionType === 'owned') {
+      book.value.is_owned = !book.value.is_owned
+    }
     
-    // alert(response.data.message) 
   } catch (err) {
     console.error("액션 실패:", err)
-    if (err.response && err.response.status === 401) {
-      alert("세션이 만료되었습니다. 다시 로그인해주세요.")
+    if (err.response?.status === 401) {
+      alert("세션이 만료되었습니다.")
       router.push('/login')
     }
   }
@@ -334,5 +424,80 @@ onMounted(fetchBookDetail)
   font-size: 0.85rem;
   color: #967979;
   line-height: 1.5;
+}
+
+/* 애니메이션 */
+.fade-slide-enter-active, .fade-slide-leave-active {
+  transition: all 0.4s ease-out;
+}
+.fade-slide-enter-from, .fade-slide-leave-to {
+  opacity: 0;
+  transform: translateY(-15px);
+}
+
+/* 판매 가격 입력 카드 */
+.selling-input-card {
+  margin-top: 15px;
+  padding: 15px;
+  background: white;
+  border: 1px solid #d1b894;
+  text-align: left;
+}
+.input-label { font-size: 0.85rem; color: #81532e; margin-bottom: 10px; }
+.input-group { display: flex; align-items: center; gap: 5px; }
+.price-field { width: 100px; padding: 5px; border: 1px solid #ddd; }
+.btn-save { background: #81532e; color: white; border: none; padding: 5px 10px; cursor: pointer; }
+
+/* 소유자 목록 카드 */
+.owner-list-card {
+  margin-top: 15px;
+  padding: 15px;
+  background: #fdfaf5;
+  border: 1px solid #d1b894;
+  text-align: left;
+}
+.list-title { font-size: 0.95rem; color: #4a3423; margin-bottom: 12px; }
+.owner-entry { 
+  display: flex; 
+  justify-content: space-between; 
+  align-items: center; 
+  padding: 8px 0;
+  border-bottom: 1px solid #f5ece0;
+}
+.owner-name { font-size: 0.9rem; font-weight: 700; }
+.owner-price { font-size: 0.9rem; color: #81532e; margin-left: 10px; }
+.btn-tiny-chat { 
+  font-size: 0.75rem; 
+  padding: 4px 8px; 
+  background: white; 
+  border: 1px solid #81532e; 
+  color: #81532e;
+  cursor: pointer;
+}
+.btn-tiny-chat:hover { background: #81532e; color: white; }
+.no-owner { font-size: 0.85rem; color: #999; }
+
+/* 추가할 스타일 */
+.main-info {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  margin-bottom: 4px;
+}
+
+.sub-info {
+  font-size: 0.75rem;
+  color: #888; /* 조금 흐리게 */
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.icon-small {
+  font-size: 0.7rem;
+}
+
+.owner-lib {
+  font-style: normal;
 }
 </style>

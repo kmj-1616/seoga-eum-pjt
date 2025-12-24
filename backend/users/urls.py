@@ -6,6 +6,7 @@ from .views import (
     UserProfileUpdateView,
     UserLogoutView,
 )
+from users import views as user_views
 
 app_name = 'users'
 
@@ -24,4 +25,7 @@ urlpatterns = [
     
     # 프로필 수정 (F04)
     path('profile/update/', UserProfileUpdateView.as_view(), name='profile-update'),
+
+    path('<str:isbn>/register_price/', user_views.register_price, name='register_price'),
+    path('<str:isbn>/owners/', user_views.get_owners, name='get_owners'),
 ]
