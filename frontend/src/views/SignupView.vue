@@ -57,7 +57,7 @@
               :disabled="selectedLibraries.length >= 2"
             >
             <ul v-if="librarySearchResults.length > 0" class="search-results">
-              <li v-for="lib in librarySearchResults" :key="lib.id" @click="selectLibrary(lib.lib_name)">
+              <li v-for="lib in librarySearchResults" :key="lib.lib_code" @click="selectLibrary(lib.lib_name)">
                 {{ lib.lib_name }} <span class="lib-addr">{{ lib.address }}</span>
               </li>
             </ul>
@@ -127,9 +127,15 @@ const searchLibraries = async () => {
     const response = await axios.get('http://127.0.0.1:8000/api/v1/books/libraries/', {
       params: { q: librarySearchQuery.value }
     })
-    librarySearchResults.value = response.data
+    
+    if (response.data && response.data.results) {
+      librarySearchResults.value = response.data.results
+    } else {
+      librarySearchResults.value = response.data 
+    }
   } catch (err) {
     console.error("도서관 검색 실패", err)
+    librarySearchResults.value = []
   }
 }
 

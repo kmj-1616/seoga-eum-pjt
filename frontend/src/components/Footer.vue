@@ -3,16 +3,17 @@
     <div class="footer-content">
       <div class="footer-brand">
         <h2 class="footer-logo">서가이음</h2>
-        <p class="footer-motto">서책으로 사람을 잇다, 문장의 인연을 소중히 여깁니다.</p>
-        <p class="footer-motto">서가를 넘나들며 지식과 인연이 만나는 곳.</p>
+        <p class="footer-motto">서책으로 사람을 잇다, 문장의 인연을 소중히 여깁니다. <br>
+          서가를 넘나들며 지식과 인연이 만나는 곳.</p>
       </div>
 
       <div class="footer-links">
         <h4>서가이음의 서비스</h4>
         <ul>
-          <li>대문</li>
-          <li>서가 둘러보기</li>
-          <li>활발한 독서 소통창</li>
+          <li>서책 탐색</li>
+          <li>AI 추천 서책</li>
+          <li>인기 서책 목록</li>
+          <li>독서 소통창</li>
           <li>중고 서책 거래</li>
         </ul>
       </div>
@@ -20,9 +21,9 @@
       <div class="footer-info">
         <h4>서가이음 정보</h4>
         <p>만든이: 권미정, 윤호준</p>
-        <p>기술: Vue.js 3 & Django REST Framework</p>
+        <p>기술: Vue.js 3 & Django REST Framework & SQLite</p>
         <p>문의: contact@seogaeum.ssafy.com</p>
-        <p>주소: 서울특별시 강남구 테헤란로 (서가빌딩 7층)</p>
+        <p>주소: 서울 강남구 테헤란로 212 멀티캠퍼스 역삼 204호</p>
       </div>
     </div>
 
