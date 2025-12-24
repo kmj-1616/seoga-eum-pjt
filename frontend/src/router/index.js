@@ -44,7 +44,13 @@ const router = createRouter({
     path: '/community/:isbn',
     name: 'community',
     component: () => import('../views/CommunityView.vue') // 실제 커뮤니티 뷰 파일 경로
-   }
+    },
+    {
+    path: '/trade/chat/:trade_id',
+    name: 'trade-chat',
+    component: () => import('../views/TradeChatView.vue'),
+    meta: { requiresAuth: true } // 로그인한 사용자만 접근 가능
+    },
   ]
 })
 
