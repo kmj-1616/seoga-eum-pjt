@@ -1,9 +1,16 @@
-# 📚 서가이음(Seogaeum) API 명세서 (v1.4)
+# 📚 서가이음(Seogaeum) API 명세서 (v1.5) — (2025-12-25)
+
+**Status:** ✅ **Project Complete — Production-ready**
 
 ## 🌐 Base URL
-`http://127.0.0.1:8000/api/v1`
+`http://127.0.0.1:8000/api/v1` (local / development)
 
 ---
+
+### 릴리즈 노트 (v1.5)
+- 프로젝트 완성: AI 기반 맞춤 추천, 실시간 도서관 연동, 커뮤니티 채팅, 인증 및 프로필 자동 갱신 등 핵심 기능 완료.
+- 응답 포맷 안정화 및 마이너 버그 픽스 적용.
+- API 문서와 예시를 정리하여 개발자와 운영자용 가이드 보완.
 
 ## [1] 도서 서비스 (Books)
 **Base URL:** `/books/`
@@ -161,3 +168,49 @@
 6. **다중 카테고리**: preferred_genres에 여러 개를 보낼 경우(예: "과학, 소설"), AI가 두 분야를 골고루 섞어서 추천 후보를 선정합니다.
 7. **추천 문구 활용**: 홈 화면의 AI 추천 섹션에서는 reason 필드를 활용해 느낌표로 끝나는 강렬한 문구를 노출해 주세요.
 8. **위치 정보**: 위도(latitude)와 경도(longitude) 값이 정확할수록 실시간 대출 현황의 distance 값이 정확하게 계산됩니다. (Geolocation API)
+
+---
+
+## 🔐 인증 예시 (Auth & Test)
+### 로그인 (토큰 발급)
+* **Endpoint:** `POST /users/login/`
+* **Body:**
+```json
+{ "email": "user@example.com", "password": "password123" }
+```
+* **응답 예시:**
+```json
+{
+  "user": {"id": 1, "email": "user@example.com", "nickname": "서가이음"},
+  "tokens": {"access": "<ACCESS_TOKEN>", "refresh": "<REFRESH_TOKEN>"}
+}
+```
+
+### 인증 헤더 사용 예시
+```
+Authorization: Bearer <ACCESS_TOKEN>
+```
+
+### curl로 테스트하기 (예시)
+- 로그인:
+```bash
+curl -X POST "http://127.0.0.1:8000/api/v1/users/login/" \
+  -H "Content-Type: application/json" \
+  -d '{"email":"user@example.com","password":"password123"}'
+```
+- 인증이 필요한 요청 (예시):
+```bash
+curl -H "Authorization: Bearer <ACCESS_TOKEN>" "http://127.0.0.1:8000/api/v1/books/"
+```
+
+---
+
+## 📝 변경 로그 (간략)
+- v1.0 ~ v1.4: 기능 설계 및 핵심 기능 구현(추천, 라이브러리 연동, 커뮤니티)
+- v1.5 (2025-12-25): 프로젝트 완료
+
+---
+
+## 📬 문의 / 기여
+- 코드 이슈/풀 리퀘스트는 GitHub 저장소로 부탁드립니다. (LICENSE 참고)
+- 긴급한 버그/운영 이슈는 레포 이슈 트래커에 태그를 달아 주세요.
