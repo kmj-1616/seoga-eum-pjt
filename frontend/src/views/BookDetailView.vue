@@ -54,8 +54,10 @@
               <div v-if="owners && owners.length > 0" class="owner-items">
                 <div v-for="owner in owners" :key="owner.id" class="owner-entry">
                   <div class="owner-info">
-                    <div class="main-info">
+                    <div class="owner-nickname-row">
                       <span class="owner-name">{{ owner.nickname }}</span>
+                    </div>
+                    <div class="owner-price-row">
                       <span class="owner-price">{{ owner.price.toLocaleString() }}원</span>
                     </div>
                     <div class="sub-info">
@@ -518,23 +520,55 @@ onMounted(fetchBookDetail)
   display: flex; 
   justify-content: space-between; 
   align-items: center; 
-  padding: 8px 0;
+  padding: 12px 0; 
   border-bottom: 1px solid #f5ece0;
 }
-.owner-name { font-size: 0.9rem; font-weight: 700; }
-.owner-price { font-size: 0.9rem; color: #81532e; margin-left: 10px; }
-.btn-tiny-chat { 
-  font-size: 0.75rem; 
-  padding: 4px 8px; 
-  background: white; 
-  border: 1px solid #81532e; 
-  color: #81532e;
-  cursor: pointer;
+.owner-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px; 
+  flex: 1;
+  overflow: hidden; 
 }
-.btn-tiny-chat:hover { background: #81532e; color: white; }
+.owner-nickname-row {
+  display: block;
+}
+.owner-name { 
+  font-size: 0.95rem; 
+  font-weight: 700; 
+  color: #333;
+  word-break: break-all; 
+}
+
+.owner-price-row {
+  display: block;
+  margin-bottom: 2px;
+}
+.owner-price { 
+  font-size: 1rem; 
+  color: #81532e; 
+  font-weight: 700;
+}
+.btn-tiny-chat {
+  align-self: center; 
+  padding: 8px 12px;
+  background: #81532e;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.btn-tiny-chat:hover { 
+  background: #4a3423; 
+}
+
+.btn-tiny-chat:active {
+  transform: scale(0.98); 
+}
 .no-owner { font-size: 0.85rem; color: #999; }
 
-/* 추가할 스타일 */
 .main-info {
   display: flex;
   gap: 8px;
@@ -544,10 +578,11 @@ onMounted(fetchBookDetail)
 
 .sub-info {
   font-size: 0.75rem;
-  color: #888; /* 조금 흐리게 */
+  color: #888;
   display: flex;
   align-items: center;
   gap: 4px;
+  margin-top: 2px;
 }
 
 .icon-small {

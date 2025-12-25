@@ -12770,7 +12770,9 @@
         "cover_url": "https://image.aladin.co.kr/product/27877/5/cover/8954682154_1.jpg",
         "category": 9,
         "loan_count": 8564,
-        "wish_users": []
+        "wish_users": [
+            8
+        ]
     }
 },
 {
@@ -12804,7 +12806,9 @@
         "cover_url": "https://image.aladin.co.kr/product/26942/84/cover/k582730818_1.jpg",
         "category": 9,
         "loan_count": 7491,
-        "wish_users": []
+        "wish_users": [
+            9
+        ]
     }
 },
 {
@@ -12820,7 +12824,9 @@
         "cover_url": "https://bookthumb-phinf.pstatic.net/cover/071/902/07190270.jpg?type=m1&udate=20170801",
         "category": 9,
         "loan_count": 7215,
-        "wish_users": []
+        "wish_users": [
+            8
+        ]
     }
 },
 {
@@ -12836,7 +12842,9 @@
         "cover_url": "https://image.aladin.co.kr/product/36566/52/cover200/k462039240_1.jpg",
         "category": 9,
         "loan_count": 6896,
-        "wish_users": []
+        "wish_users": [
+            9
+        ]
     }
 },
 {
@@ -15964,53 +15972,43 @@
     }
 },
 {
-    "model": "books.recommendation",
-    "pk": 1,
-    "fields": {
-        "user": 3,
-        "book": 463,
-        "reason": "진화론의 새로운 패러다임을 제시한다!",
-        "created_at": "2025-12-24T04:42:42.849Z"
-    }
-},
-{
-    "model": "books.recommendation",
-    "pk": 2,
-    "fields": {
-        "user": 3,
-        "book": 475,
-        "reason": "다정한 물리학자의 비밀 연구실로 초대합니다!",
-        "created_at": "2025-12-24T04:42:42.849Z"
-    }
-},
-{
-    "model": "books.recommendation",
+    "model": "books.userbookstock",
     "pk": 3,
     "fields": {
         "user": 3,
-        "book": 417,
-        "reason": "과학을 재미있게 배우는 최고의 입문서!",
-        "created_at": "2025-12-24T04:42:42.849Z"
+        "book": 794,
+        "selling_price": 2500,
+        "created_at": "2025-12-25T04:32:57.568Z"
     }
 },
 {
-    "model": "books.recommendation",
+    "model": "books.userbookstock",
     "pk": 4,
     "fields": {
-        "user": 3,
-        "book": 401,
-        "reason": "유머와 과학을 동시에 만난다!",
-        "created_at": "2025-12-24T04:42:42.849Z"
+        "user": 8,
+        "book": 667,
+        "selling_price": 5000,
+        "created_at": "2025-12-25T06:44:00.186Z"
     }
 },
 {
-    "model": "books.recommendation",
+    "model": "books.userbookstock",
     "pk": 5,
     "fields": {
         "user": 3,
-        "book": 486,
-        "reason": "자연을 이해하는 가장 좋은 방법은 탐사다!",
-        "created_at": "2025-12-24T04:42:42.849Z"
+        "book": 797,
+        "selling_price": 4000,
+        "created_at": "2025-12-25T06:46:58.838Z"
+    }
+},
+{
+    "model": "books.userbookstock",
+    "pk": 6,
+    "fields": {
+        "user": 8,
+        "book": 798,
+        "selling_price": 4000,
+        "created_at": "2025-12-25T08:12:11.440Z"
     }
 },
 {
@@ -16061,6 +16059,206 @@
         "book": 740,
         "reason": "모험 속 한자 학습, 재미는 덤!",
         "created_at": "2025-12-24T04:43:50.544Z"
+    }
+},
+{
+    "model": "books.recommendation",
+    "pk": 11,
+    "fields": {
+        "user": 6,
+        "book": 918,
+        "reason": "역사를 즐기는 당신에게, 설민석과의 대모험!",
+        "created_at": "2025-12-25T04:35:35.127Z"
+    }
+},
+{
+    "model": "books.recommendation",
+    "pk": 12,
+    "fields": {
+        "user": 6,
+        "book": 792,
+        "reason": "국어 교과서의 숨겨진 재미를 만나보세요!",
+        "created_at": "2025-12-25T04:35:35.136Z"
+    }
+},
+{
+    "model": "books.recommendation",
+    "pk": 13,
+    "fields": {
+        "user": 6,
+        "book": 983,
+        "reason": "이순신의 전투로 역사를 생생히 느껴보세요!",
+        "created_at": "2025-12-25T04:35:35.140Z"
+    }
+},
+{
+    "model": "books.recommendation",
+    "pk": 14,
+    "fields": {
+        "user": 6,
+        "book": 780,
+        "reason": "30년의 영어 독학, 그 비법을 공개합니다!",
+        "created_at": "2025-12-25T04:35:35.144Z"
+    }
+},
+{
+    "model": "books.recommendation",
+    "pk": 15,
+    "fields": {
+        "user": 6,
+        "book": 749,
+        "reason": "한자를 쉽게 배우고, 일상에서 써먹자!",
+        "created_at": "2025-12-25T04:35:35.148Z"
+    }
+},
+{
+    "model": "books.recommendation",
+    "pk": 111,
+    "fields": {
+        "user": 3,
+        "book": 482,
+        "reason": "인간 진화의 비밀을 풀어보자!",
+        "created_at": "2025-12-25T08:10:25.321Z"
+    }
+},
+{
+    "model": "books.recommendation",
+    "pk": 112,
+    "fields": {
+        "user": 3,
+        "book": 441,
+        "reason": "자연의 질서를 뒤흔드는 혼돈의 여정!",
+        "created_at": "2025-12-25T08:10:25.323Z"
+    }
+},
+{
+    "model": "books.recommendation",
+    "pk": 113,
+    "fields": {
+        "user": 3,
+        "book": 463,
+        "reason": "진화론의 새로운 패러다임에 도전하라!",
+        "created_at": "2025-12-25T08:10:25.324Z"
+    }
+},
+{
+    "model": "books.recommendation",
+    "pk": 114,
+    "fields": {
+        "user": 3,
+        "book": 404,
+        "reason": "일상 속 과학의 신기한 원리를 발견하라!",
+        "created_at": "2025-12-25T08:10:25.326Z"
+    }
+},
+{
+    "model": "books.recommendation",
+    "pk": 115,
+    "fields": {
+        "user": 3,
+        "book": 468,
+        "reason": "곤충의 삶을 생생하게 들여다보자!",
+        "created_at": "2025-12-25T08:10:25.327Z"
+    }
+},
+{
+    "model": "books.recommendation",
+    "pk": 141,
+    "fields": {
+        "user": 8,
+        "book": 505,
+        "reason": "인간 탐구의 놀라운 비밀을 밝혀라!",
+        "created_at": "2025-12-25T08:57:40.421Z"
+    }
+},
+{
+    "model": "books.recommendation",
+    "pk": 142,
+    "fields": {
+        "user": 8,
+        "book": 83,
+        "reason": "AI 영상 제작의 미래를 경험하라!",
+        "created_at": "2025-12-25T08:57:40.422Z"
+    }
+},
+{
+    "model": "books.recommendation",
+    "pk": 143,
+    "fields": {
+        "user": 8,
+        "book": 614,
+        "reason": "예술로 소통하는 특별한 순간을 담아라!",
+        "created_at": "2025-12-25T08:57:40.423Z"
+    }
+},
+{
+    "model": "books.recommendation",
+    "pk": 144,
+    "fields": {
+        "user": 8,
+        "book": 33,
+        "reason": "챗GPT의 모든 것을 쉽게 이해하자!",
+        "created_at": "2025-12-25T08:57:40.424Z"
+    }
+},
+{
+    "model": "books.recommendation",
+    "pk": 145,
+    "fields": {
+        "user": 8,
+        "book": 566,
+        "reason": "의료 현장의 생생한 이야기를 만나보자!",
+        "created_at": "2025-12-25T08:57:40.424Z"
+    }
+},
+{
+    "model": "books.recommendation",
+    "pk": 146,
+    "fields": {
+        "user": 9,
+        "book": 61,
+        "reason": "세상의 모든 지식을 맛볼 수 있는 팩토피아!",
+        "created_at": "2025-12-25T09:03:02.370Z"
+    }
+},
+{
+    "model": "books.recommendation",
+    "pk": 147,
+    "fields": {
+        "user": 9,
+        "book": 570,
+        "reason": "한국사를 재미있게 배우는 모험이 시작된다!",
+        "created_at": "2025-12-25T09:03:02.371Z"
+    }
+},
+{
+    "model": "books.recommendation",
+    "pk": 148,
+    "fields": {
+        "user": 9,
+        "book": 565,
+        "reason": "백종원의 요리 비법으로 맛의 세계를 탐험하라!",
+        "created_at": "2025-12-25T09:03:02.372Z"
+    }
+},
+{
+    "model": "books.recommendation",
+    "pk": 149,
+    "fields": {
+        "user": 9,
+        "book": 976,
+        "reason": "이순신 장군의 숨겨진 이야기를 만나보세요!",
+        "created_at": "2025-12-25T09:03:02.373Z"
+    }
+},
+{
+    "model": "books.recommendation",
+    "pk": 150,
+    "fields": {
+        "user": 9,
+        "book": 38,
+        "reason": "지식과 재미를 동시에 잡는 지대넓얕의 매력!",
+        "created_at": "2025-12-25T09:03:02.374Z"
     }
 },
 {

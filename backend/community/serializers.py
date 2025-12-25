@@ -34,13 +34,16 @@ class TradeChatRoomSerializer(serializers.ModelSerializer):
     opponent_nickname = serializers.SerializerMethodField()
     seller_id = serializers.IntegerField(source='seller.id', read_only=True)
     buyer_id = serializers.IntegerField(source='buyer.id', read_only=True)
+    seller_nickname = serializers.ReadOnlyField(source='seller.nickname')
+    buyer_nickname = serializers.ReadOnlyField(source='buyer.nickname')
     selling_price = serializers.SerializerMethodField()
     pending_status_request = serializers.SerializerMethodField()
 
     class Meta:
         model = TradeChatRoom
         fields = ['id', 'book_title', 'book_author', 'status', 'opponent_nickname', 
-                  'seller_id', 'buyer_id', 'selling_price', 'pending_status_request', 'location', 'library_address','locker_number', 'created_at']
+                  'seller_id', 'buyer_id', 'seller_nickname', 'buyer_nickname',
+                  'selling_price', 'pending_status_request', 'location', 'library_address','locker_number', 'created_at']
 
     def get_opponent_nickname(self, obj):
         user = self.context['request'].user
