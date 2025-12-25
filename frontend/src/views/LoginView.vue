@@ -66,8 +66,14 @@ export default {
           await new Promise((resolve) => {
             navigator.geolocation.getCurrentPosition(
               (pos) => {
-                localStorage.setItem('user_lat', pos.coords.latitude);
-                localStorage.setItem('user_lon', pos.coords.longitude);
+                const lat = pos.coords.latitude; 
+                const lon = pos.coords.longitude;
+
+                localStorage.setItem('user_lat', lat);
+                localStorage.setItem('user_lon', lon);
+
+                this.saveLocationToDB(lat, lon);
+
                 resolve();
               },
               (err) => {
@@ -93,6 +99,20 @@ export default {
       } catch (error) {
         console.error("로그인 에러:", error.response?.data);
         alert("로그인 실패: " + (error.response?.data?.detail || "이메일 또는 비밀번호를 확인하세요."));
+      }
+    },
+      async saveLocationToDB(lat, lon) {
+      const token = localStorage.getItem('access_token');
+      try {
+        await axios.patch('http://127.0.0.1:8000/api/v1/users/profile/update/', {
+          latitude: lat,
+          longitude: lon
+        }, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        console.log("서버에 위치 정보 저장 완료");
+      } catch (err) {
+        console.error("서버 위치 저장 실패:", err);
       }
     }
   }

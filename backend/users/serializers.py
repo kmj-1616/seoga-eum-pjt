@@ -59,7 +59,8 @@ class UserUpdateSerializer(serializers.ModelSerializer):
         model = User
         fields = [
             'nickname', 'age_group', 'gender',
-            'favorite_libraries', 'preferred_genres'
+            'favorite_libraries', 'preferred_genres',
+            'latitude', 'longitude'
         ]
 
     def validate_nickname(self, value):
