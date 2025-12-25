@@ -10,12 +10,21 @@
       </div>
     </div>
 
+    <div class="user-info-row">
+      <div class="user-badge seller">
+        <span class="role-tag">판매자</span>
+        <span class="user-name">{{ sellerNickname || '익명' }}</span>
+      </div>
+      <div class="user-badge buyer">
+        <span class="role-tag">구매자</span>
+        <span class="user-name">{{ buyerNickname || '익명' }}</span>
+      </div>
+    </div>
+
     <div class="horizontal-divider"></div>
 
     <div class="progress-section">
-      <h5 class="section-subtitle">
-        <span class="icon-box">📦</span> 거래 진행 상황
-      </h5>
+      <h5 class="section-subtitle">📦 거래 진행 상황</h5>
       <div class="timeline-container">
         <div v-for="(step, index) in steps" :key="index" :class="['timeline-item', getStepStatus(index)]">
           <div class="node-wrapper">
@@ -43,9 +52,7 @@
           </div>
         </template>
         <template v-else>
-          <p class="request-text" style="text-align: center; color: #856404; margin: 0;">
-            상대방의 <strong>{{ getStatusLabel(pendingRequest.new_status) }}</strong> 승인을 기다리는 중...
-          </p>
+          <p class="request-text waiting">상대방의 승인을 기다리는 중...</p>
         </template>
       </div>
     </div>
@@ -55,13 +62,7 @@
       <div class="location-form">
         <div class="library-search-container">
           <div class="search-input-wrapper">
-            <input 
-              type="text" 
-              v-model="locationInput" 
-              @input="searchLibraries" 
-              placeholder="도서관 검색" 
-              class="location-search-input" 
-            />
+            <input type="text" v-model="locationInput" @input="searchLibraries" placeholder="도서관 검색" class="location-search-input" />
             <ul v-if="librarySearchResults.length > 0" class="search-dropdown">
               <li v-for="lib in librarySearchResults" :key="lib.lib_code" @click="selectLibrary(lib)">
                 <span class="lib-name">{{ lib.lib_name }}</span>
@@ -71,34 +72,28 @@
           </div>
           <input v-model="lockerNumberInput" type="text" placeholder="함 번호" class="locker-input" />
         </div>
-        <button class="btn-save-location" @click="saveLocation" :disabled="isLoading">
-          {{ isLoading ? '저장 중...' : '거래 장소 저장' }}
-        </button>
+        <button class="btn-save-location" @click="saveLocation" :disabled="isLoading">저장하기</button>
       </div>
     </div>
 
-    <div v-if="status === 'LIBRARY_STORED' && props.libraryName" class="location-info-section">
+    <div v-if="status === 'LIBRARY_STORED' && libraryName" class="location-info-section">
       <h5 class="section-subtitle">📍 거래 장소</h5>
       <div class="library-card">
-        <strong class="lib-name">{{ displayLocation }}</strong>
+        <strong class="lib-name">{{ libraryName }}</strong>
         <p class="lib-address">{{ libraryAddress }}</p>
         <div class="locker-tag-row">
           <span class="locker-label">보관함</span>
-          <span class="locker-id">{{ displayLockerNumber }}</span>
+          <span class="locker-id">{{ lockerNumber || '-' }}</span>
         </div>
       </div>
     </div>
 
     <div class="action-buttons">
-      <button class="request-btn" v-if="userRole === 'buyer' && status === 'APPROVED' && !pendingRequest" @click="requestStatusChange('LIBRARY_STORED')">📦 도서관 보관 요청하기</button>
+      <button class="request-btn" v-if="userRole === 'buyer' && status === 'APPROVED' && !pendingRequest" @click="requestStatusChange('LIBRARY_STORED')">📦 도서관 보관 요청</button>
       <button class="confirm-btn" v-if="userRole === 'buyer' && status === 'LIBRARY_STORED' && !pendingRequest" @click="confirmReceipt">✓ 수령 완료</button>
 
       <div v-if="!pendingRequest && !canTakeAction" class="status-notice">
-        <span v-if="userRole === 'buyer' && status === 'REQUESTED'">판매자의 승인을 기다리는 중...</span>
-        <span v-else-if="userRole === 'seller' && status === 'REQUESTED'">거래 요청을 확인해주세요.</span>
-        <span v-else-if="userRole === 'seller' && status === 'APPROVED'">구매자의 보관 요청 대기 중...</span>
-        <span v-else-if="status === 'LIBRARY_STORED'">구매자가 수령을 대기 중입니다.</span>
-        <span v-else-if="status === 'COMPLETED'">거래가 완료되었습니다.</span>
+        {{ getNoticeText }}
       </div>
     </div>
   </div>
@@ -109,16 +104,18 @@ import { computed, ref, watch, onMounted } from 'vue';
 import axios from 'axios';
 
 const props = defineProps({
-  bookTitle: { type: String, default: '' },
-  bookAuthor: { type: String, default: '' },
-  bookPrice: { type: Number, default: 0 },
-  status: { type: String, default: 'REQUESTED' },
-  userRole: { type: String, default: 'buyer' },
-  tradeId: { type: [Number, String], required: true },
-  libraryName: { type: String, default: '' },
-  libraryAddress: { type: String, default: '' },
-  lockerNumber: { type: String, default: '' },
-  pendingStatusRequest: { type: Object, default: null }
+  bookTitle: String,
+  bookAuthor: String,
+  bookPrice: Number,
+  status: String,
+  userRole: String,
+  tradeId: [Number, String],
+  libraryName: String,
+  libraryAddress: String,
+  lockerNumber: String,
+  pendingStatusRequest: Object,
+  sellerNickname: String,
+  buyerNickname: String
 });
 
 const emit = defineEmits(['confirm-receipt', 'status-changed']);
@@ -130,52 +127,41 @@ const lockerNumberInput = ref('');
 const selectedLibraryAddress = ref('');
 const librarySearchResults = ref([]);
 
-onMounted(() => {
-  if (props.libraryName) locationInput.value = props.libraryName;
-  if (props.lockerNumber) lockerNumberInput.value = props.lockerNumber;
-});
-
-watch(() => props.pendingStatusRequest, (newVal) => { pendingRequest.value = newVal; }, { deep: true });
-watch(() => props.libraryName, (val) => { if (val) locationInput.value = val; });
-watch(() => props.lockerNumber, (val) => { if (val) lockerNumberInput.value = val; });
-
-const steps = ['거래 요청', '거래 승인', '도서관 보관 요청', '구매자 수령', '거래 완료'];
+const steps = ['거래 요청', '거래 승인', '보관 요청', '수령 대기', '거래 완료'];
 
 const currentStep = computed(() => {
-  const statusMap = { 'REQUESTED': 0, 'APPROVED': 1, 'LIBRARY_STORED': 2, 'COMPLETED': 4 };
-  return statusMap[props.status] || 0;
+  const map = { 'REQUESTED': 0, 'APPROVED': 1, 'LIBRARY_STORED': 3, 'COMPLETED': 4 };
+  return map[props.status] ?? 0;
 });
 
-const getStepStatus = (index) => {
-  if (index < currentStep.value) return 'completed';
-  if (index === currentStep.value) return 'current';
-  return 'pending';
-};
+const getStepStatus = (index) => index < currentStep.value ? 'completed' : (index === currentStep.value ? 'current' : 'pending');
 
-const getStatusLabel = (status) => {
-  const labels = { 'LIBRARY_STORED': '도서관 보관 중', 'COMPLETED': '거래 완료' };
-  return labels[status] || status;
-};
+const getStatusLabel = (s) => ({ 'LIBRARY_STORED': '도서관 보관', 'COMPLETED': '거래 완료' }[s] || s);
 
-const canTakeAction = computed(() => {
-  if (pendingRequest.value) return false;
-  if (props.userRole === 'buyer' && (props.status === 'APPROVED' || props.status === 'LIBRARY_STORED')) return true;
-  return false;
+const canTakeAction = computed(() => !pendingRequest.value && props.userRole === 'buyer' && (props.status === 'APPROVED' || props.status === 'LIBRARY_STORED'));
+
+const getNoticeText = computed(() => {
+  const { userRole, status } = props;
+  
+  if (status === 'COMPLETED') return '거래가 완료되었습니다.';
+  
+  if (userRole === 'seller') {
+    if (status === 'REQUESTED') return '거래 요청을 확인해주세요.';
+    if (status === 'APPROVED') return '구매자의 보관 요청 대기 중...';
+    if (status === 'LIBRARY_STORED') return '구매자의 수령 대기 중...'; 
+  } else if (userRole === 'buyer') {
+    if (status === 'REQUESTED') return '판매자의 승인을 기다리는 중...';
+  }
+  
+  return '상대방의 다음 단계를 기다리고 있습니다.';
 });
 
 const searchLibraries = async () => {
-  if (locationInput.value.length < 2) {
-    librarySearchResults.value = [];
-    return;
-  }
+  if (locationInput.value.length < 2) return (librarySearchResults.value = []);
   try {
-    const response = await axios.get('http://127.0.0.1:8000/api/v1/books/libraries/', {
-      params: { q: locationInput.value }
-    });
-    librarySearchResults.value = response.data.results || response.data;
-  } catch (err) {
-    console.error("도서관 검색 실패", err);
-  }
+    const res = await axios.get('http://127.0.0.1:8000/api/v1/books/libraries/', { params: { q: locationInput.value } });
+    librarySearchResults.value = res.data.results || res.data;
+  } catch (err) { console.error(err); }
 };
 
 const selectLibrary = (lib) => {
@@ -185,166 +171,102 @@ const selectLibrary = (lib) => {
 };
 
 const saveLocation = async () => {
-  if (!locationInput.value || !lockerNumberInput.value) {
-    alert('도서관과 보관함 번호를 입력해주세요.');
-    return;
-  }
+  if (!locationInput.value || !lockerNumberInput.value) return alert('정보를 입력하세요.');
   isLoading.value = true;
-  const token = localStorage.getItem('access_token');
   try {
-    await axios.post(
-      `http://127.0.0.1:8000/api/v1/community/trade/${props.tradeId}/update-location/`,
-      {
-        location: locationInput.value,
-        locker_number: lockerNumberInput.value,
-        address: selectedLibraryAddress.value || props.libraryAddress 
-      },
-      { headers: { Authorization: `Bearer ${token}` } }
+    await axios.post(`http://127.0.0.1:8000/api/v1/community/trade/${props.tradeId}/update-location/`, 
+      { location: locationInput.value, locker_number: lockerNumberInput.value, address: selectedLibraryAddress.value || props.libraryAddress },
+      { headers: { Authorization: `Bearer ${localStorage.getItem('access_token')}` } }
     );
-    alert('거래 장소가 저장되었습니다.');
-    emit('status-changed', props.status); 
-  } catch (err) {
-    alert("저장 실패: " + (err.response?.data?.error || err.message));
-  } finally {
-    isLoading.value = false;
-  }
+    alert('저장되었습니다.');
+    emit('status-changed');
+  } catch (err) { alert("실패"); } finally { isLoading.value = false; }
 };
 
-const requestStatusChange = async (newStatus) => {
-  if (isLoading.value) return;
-  isLoading.value = true;
-  const token = localStorage.getItem('access_token');
+const requestStatusChange = async (new_status) => {
   try {
-    const res = await axios.post(
-      `http://127.0.0.1:8000/api/v1/community/trade/${props.tradeId}/request-status/`,
-      { new_status: newStatus },
-      { headers: { Authorization: `Bearer ${token}` } }
+    const res = await axios.post(`http://127.0.0.1:8000/api/v1/community/trade/${props.tradeId}/request-status/`, { new_status },
+      { headers: { Authorization: `Bearer ${localStorage.getItem('access_token')}` } }
     );
     pendingRequest.value = res.data;
-  } catch (err) {
-    alert("요청 실패: " + (err.response?.data?.error || err.message));
-  } finally {
-    isLoading.value = false;
-  }
+  } catch (err) { console.error(err); }
 };
 
-const currentUserId = computed(() => parseInt(localStorage.getItem('user_id')));
-const isActionRequired = computed(() => {
-  if (!pendingRequest.value) return false;
-  return parseInt(pendingRequest.value.requester_id) !== currentUserId.value;
-});
+const isActionRequired = computed(() => pendingRequest.value && String(pendingRequest.value.requester_id) !== String(localStorage.getItem('user_id')));
 
 const acceptRequest = async () => {
-  if (!pendingRequest.value || isLoading.value) return;
-  isLoading.value = true;
-  const token = localStorage.getItem('access_token');
   try {
-    const res = await axios.post(
-      `http://127.0.0.1:8000/api/v1/community/trade/${props.tradeId}/request/${pendingRequest.value.id}/approve/`,
-      { action: 'accept' },
-      { headers: { Authorization: `Bearer ${token}` } }
+    const res = await axios.post(`http://127.0.0.1:8000/api/v1/community/trade/${props.tradeId}/request/${pendingRequest.value.id}/approve/`, { action: 'accept' },
+      { headers: { Authorization: `Bearer ${localStorage.getItem('access_token')}` } }
     );
     pendingRequest.value = null;
     emit('status-changed', res.data.new_status);
-  } catch (err) {
-    alert("수락 실패: " + (err.response?.data?.error || err.message));
-  } finally {
-    isLoading.value = false;
-  }
+  } catch (err) { console.error(err); }
 };
 
 const rejectRequest = async () => {
-  if (!pendingRequest.value || isLoading.value) return;
-  isLoading.value = true;
-  const token = localStorage.getItem('access_token');
   try {
-    await axios.post(
-      `http://127.0.0.1:8000/api/v1/community/trade/${props.tradeId}/request/${pendingRequest.value.id}/approve/`,
-      { action: 'reject' },
-      { headers: { Authorization: `Bearer ${token}` } }
+    await axios.post(`http://127.0.0.1:8000/api/v1/community/trade/${props.tradeId}/request/${pendingRequest.value.id}/approve/`, { action: 'reject' },
+      { headers: { Authorization: `Bearer ${localStorage.getItem('access_token')}` } }
     );
     pendingRequest.value = null;
-  } catch (err) {
-    alert("거절 실패: " + (err.response?.data?.error || err.message));
-  } finally {
-    isLoading.value = false;
-  }
+  } catch (err) { console.error(err); }
 };
 
 const confirmReceipt = () => emit('confirm-receipt');
-const displayLocation = computed(() => props.libraryName || '장소 정보 없음');
-const displayLockerNumber = computed(() => props.lockerNumber || '-');
+
+watch(() => props.pendingStatusRequest, (v) => pendingRequest.value = v);
+onMounted(() => {
+  if (props.libraryName) locationInput.value = props.libraryName;
+  if (props.lockerNumber) lockerNumberInput.value = props.lockerNumber;
+});
 </script>
 
 <style scoped>
-/* 전체 패널 스크롤 설정 */
-.transaction-panel { 
-  text-align: left; 
-  color: #333; 
-  display: flex; 
-  flex-direction: column; 
-  gap: 0;
-  max-height: 80vh; /* 부모 높이에 맞춰 스크롤 생성 */
-  overflow-y: auto;
-  padding-right: 4px;
-}
-
-/* 스크롤바 커스텀 */
-.transaction-panel::-webkit-scrollbar { width: 4px; }
-.transaction-panel::-webkit-scrollbar-thumb { background: #d1b894; border-radius: 10px; }
-
-/* 도서 정보 압축 */
-.book-summary-box { margin-bottom: 4px; }
+.transaction-panel { text-align: left; display: flex; flex-direction: column; gap: 0; }
 .book-author { font-size: 11px; color: #999; margin: 0; }
 .book-title { font-size: 15px; margin: 2px 0 6px 0; color: #2c2c2c; font-weight: 600; }
-.book-price-row { display: flex; justify-content: flex-end; align-items: center; }
 .price-value { font-size: 18px; font-weight: 700; color: #1976d2; }
-.horizontal-divider { height: 1px; background: #f0f0f0; margin: 10px 0; }
-
-/* 타임라인 압축 */
-.section-subtitle { font-size: 13px; margin: 0 0 10px 0; font-weight: 600; color: #555; display: flex; align-items: center; gap: 6px; }
+.user-info-row { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; }
+.user-badge { display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-radius: 6px; border: 1px solid #f5ece0; }
+.user-badge.seller { background: #fdfaf5; }
+.user-badge.buyer { background: #f0f7ff; border-color: #e1f0ff; }
+.role-tag { font-size: 10px; font-weight: 700; padding: 2px 5px; border-radius: 3px; color: #fff; }
+.seller .role-tag { background: #81532e; }
+.buyer .role-tag { background: #1976d2; }
+.user-name { font-size: 13px; font-weight: 500; color: #4a3423; }
+.horizontal-divider { height: 1px; background: #f0f0f0; margin: 15px 0; }
+.section-subtitle { font-size: 13px; margin: 0 0 10px 0; font-weight: 600; color: #555; }
 .timeline-container { display: flex; flex-direction: column; padding-left: 5px; }
 .timeline-item { display: flex; gap: 10px; position: relative; padding-bottom: 12px; }
-.timeline-item:last-child { padding-bottom: 0; }
-.node-wrapper { display: flex; flex-direction: column; align-items: center; width: 18px; }
-.status-node { width: 18px; height: 18px; border-radius: 50%; border: 2px solid #eee; background: #fff; z-index: 2; display: flex; align-items: center; justify-content: center; font-size: 9px; }
-.connector-line { width: 2px; flex-grow: 1; background: #f0f0f0; position: absolute; top: 18px; z-index: 1; }
-.step-label { font-size: 12px; color: #bbb; padding-top: 1px; }
-
-.timeline-item.completed .status-node { border-color: #81532e; background: #81532e; }
-.timeline-item.completed .check-mark { color: #fff; font-weight: bold; }
-.timeline-item.completed .step-label { color: #555; }
+.status-node { width: 18px; height: 18px; border-radius: 50%; border: 2px solid #eee; background: #fff; display: flex; align-items: center; justify-content: center; font-size: 9px; }
+.connector-line { width: 2px; flex-grow: 1; background: #f0f0f0; position: absolute; top: 18px; left: 8px; bottom: 0; }
+.timeline-item.completed .status-node { border-color: #81532e; background: #81532e; color: #fff; }
 .timeline-item.completed .connector-line { background: #81532e; }
-.timeline-item.current .status-node { border-color: #81532e; border-width: 2.5px; }
+.timeline-item.current .status-node { border-color: #81532e; border-width: 2px; }
+.step-label { font-size: 12px; color: #bbb; }
 .timeline-item.current .step-label { color: #81532e; font-weight: 700; }
-
-/* 요청 박스 */
-.status-request-section { margin-top: 8px; padding: 10px; background: #fff9db; border: 1px solid #ffec99; border-radius: 8px; }
-.request-text { font-size: 12px; margin-bottom: 8px; line-height: 1.4; }
+.timeline-item.completed .step-label { color: #555; }
+.status-request-section { margin-top: 8px; padding: 12px; background: #fff9db; border-radius: 8px; border: 1px solid #ffec99; }
+.request-text { font-size: 12px; margin-bottom: 8px; }
+.request-text.waiting { text-align: center; color: #856404; margin: 0; }
 .request-buttons { display: flex; gap: 6px; }
-.btn-reject, .btn-accept { flex: 1; padding: 7px; font-size: 12px; border: none; border-radius: 4px; cursor: pointer; }
-.btn-reject { background: #f1f3f5; }
+.btn-reject, .btn-accept { flex: 1; padding: 8px; font-size: 12px; border: none; border-radius: 4px; cursor: pointer; }
 .btn-accept { background: #81532e; color: #fff; }
-
-/* 장소 섹션 압축 */
-.location-edit-section, .location-info-section { margin-top: 12px; }
-.location-form { display: flex; flex-direction: column; gap: 6px; }
-.library-search-container { display: flex; gap: 6px; }
-.location-search-input, .locker-input { padding: 9px; border: 1px solid #ddd; border-radius: 6px; font-size: 12px; }
-.location-search-input { flex: 2; }
-.locker-input { flex: 1; text-align: center; }
-.btn-save-location { padding: 10px; background: #81532e; color: #fff; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 13px; }
-
-.library-card { background: #fdfaf7; border: 1px solid #efeae5; border-radius: 8px; padding: 10px; }
-.lib-name { font-size: 13px; color: #4a3423; display: block; margin-bottom: 2px; }
-.lib-address { font-size: 11px; color: #888; margin: 0 0 8px 0; }
-.locker-tag-row { display: flex; justify-content: space-between; align-items: center; background: #fff; padding: 5px 8px; border-radius: 4px; border: 1px solid #eee; }
-.locker-label { font-size: 10px; color: #999; }
-.locker-id { font-size: 13px; font-weight: 700; color: #81532e; }
-
-/* 하단 버튼 영역 */
-.action-buttons { margin-top: 12px; padding-bottom: 10px; }
-.request-btn { width: 100%; padding: 12px; border: 1.5px solid #81532e; background: #fff; color: #81532e; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 14px; }
-.confirm-btn { width: 100%; padding: 12px; background: #81532e; color: #fff; border: none; border-radius: 8px; font-weight: 700; cursor: pointer; font-size: 14px; }
-.status-notice { padding: 9px; background: #f8f9fa; border-radius: 6px; color: #888; font-size: 12px; text-align: center; border: 1px solid #eee; }
+.location-edit-section { margin-top: 15px; }
+.library-search-container { display: flex; gap: 5px; margin-bottom: 8px; }
+.search-input-wrapper { position: relative; flex: 2; }
+.location-search-input, .locker-input { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 12px; box-sizing: border-box; }
+.locker-input { flex: 1; }
+.search-dropdown { position: absolute; top: 100%; left: 0; right: 0; background: #fff; border: 1px solid #d1b894; z-index: 10; max-height: 150px; overflow-y: auto; list-style: none; padding: 0; margin: 0; }
+.search-dropdown li { padding: 8px; border-bottom: 1px solid #eee; cursor: pointer; }
+.lib-name { display: block; font-size: 12px; font-weight: 600; }
+.lib-addr { font-size: 10px; color: #999; }
+.btn-save-location { width: 100%; padding: 10px; background: #81532e; color: #fff; border: none; border-radius: 4px; cursor: pointer; }
+.library-card { background: #fdfaf7; border: 1px solid #efeae5; border-radius: 6px; padding: 10px; margin-top: 5px; }
+.locker-tag-row { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; background: #fff; padding: 4px 8px; border-radius: 4px; }
+.action-buttons { margin-top: 20px; display: flex; flex-direction: column; gap: 10px; }
+.request-btn { padding: 12px; border: 1.5px solid #81532e; background: #fff; color: #81532e; border-radius: 6px; font-weight: 600; cursor: pointer; }
+.confirm-btn { padding: 12px; background: #81532e; color: #fff; border: none; border-radius: 6px; font-weight: 700; cursor: pointer; }
+.status-notice { padding: 12px; background: #fcfcfc; border: 1px dashed #ddd; border-radius: 6px; color: #777; font-size: 12px; text-align: center; }
 </style>

@@ -28,5 +28,183 @@
         "content": "공감합니다 재미있어요",
         "created_at": "2025-12-24T04:44:23.078Z"
     }
+},
+{
+    "model": "community.chatmessage",
+    "pk": 4,
+    "fields": {
+        "book": 795,
+        "user": 3,
+        "content": "또 읽고 싶어요ㅠㅠ",
+        "created_at": "2025-12-25T04:34:09.876Z"
+    }
+},
+{
+    "model": "community.chatmessage",
+    "pk": 5,
+    "fields": {
+        "book": 705,
+        "user": 8,
+        "content": "이거 보고 맞춤법 마스터 했어요",
+        "created_at": "2025-12-25T06:44:40.771Z"
+    }
+},
+{
+    "model": "community.tradechatroom",
+    "pk": 1,
+    "fields": {
+        "book": 794,
+        "seller": 3,
+        "buyer": 8,
+        "status": "COMPLETED",
+        "location": "부산광역시 강서기적의도서관",
+        "library_address": "부산광역시 강서구 명지오션시티10로 80",
+        "locker_number": "A-15",
+        "created_at": "2025-12-25T05:06:07.744Z"
+    }
+},
+{
+    "model": "community.tradechatroom",
+    "pk": 2,
+    "fields": {
+        "book": 797,
+        "seller": 3,
+        "buyer": 8,
+        "status": "COMPLETED",
+        "location": "강남구립개포하늘꿈도서관",
+        "library_address": "서울특별시 강남구 개포로110길 54",
+        "locker_number": "A-12",
+        "created_at": "2025-12-25T06:47:32.814Z"
+    }
+},
+{
+    "model": "community.tradechatroom",
+    "pk": 3,
+    "fields": {
+        "book": 798,
+        "seller": 8,
+        "buyer": 9,
+        "status": "COMPLETED",
+        "location": "대림도서관",
+        "library_address": "서울특별시 영등포구 도신로 27",
+        "locker_number": "B-12",
+        "created_at": "2025-12-25T08:21:16.344Z"
+    }
+},
+{
+    "model": "community.trademessage",
+    "pk": 1,
+    "fields": {
+        "room": 1,
+        "sender": 8,
+        "content": "안녕하세요 책 구매하고 싶습니다",
+        "created_at": "2025-12-25T05:06:45.276Z"
+    }
+},
+{
+    "model": "community.trademessage",
+    "pk": 2,
+    "fields": {
+        "room": 1,
+        "sender": 3,
+        "content": "2500원에 괜찮으세요?",
+        "created_at": "2025-12-25T05:14:06.860Z"
+    }
+},
+{
+    "model": "community.trademessage",
+    "pk": 3,
+    "fields": {
+        "room": 1,
+        "sender": 8,
+        "content": "네 쿨거하겠습니다 도서관에 보관 부탁드립니다",
+        "created_at": "2025-12-25T05:15:48.306Z"
+    }
+},
+{
+    "model": "community.trademessage",
+    "pk": 4,
+    "fields": {
+        "room": 2,
+        "sender": 8,
+        "content": "안녕하세요 구매하고 싶어요",
+        "created_at": "2025-12-25T06:47:47.338Z"
+    }
+},
+{
+    "model": "community.trademessage",
+    "pk": 5,
+    "fields": {
+        "room": 2,
+        "sender": 3,
+        "content": "네 보관 요청 보내주세요",
+        "created_at": "2025-12-25T07:02:19.249Z"
+    }
+},
+{
+    "model": "community.trademessage",
+    "pk": 6,
+    "fields": {
+        "room": 3,
+        "sender": 9,
+        "content": "구매 가능한가요?",
+        "created_at": "2025-12-25T08:53:02.640Z"
+    }
+},
+{
+    "model": "community.trademessage",
+    "pk": 7,
+    "fields": {
+        "room": 3,
+        "sender": 8,
+        "content": "네 가능합니다 보관 요청 보내주세요",
+        "created_at": "2025-12-25T08:54:09.875Z"
+    }
+},
+{
+    "model": "community.trademessage",
+    "pk": 8,
+    "fields": {
+        "room": 3,
+        "sender": 9,
+        "content": "감사합니다 잘 읽겠습니다",
+        "created_at": "2025-12-25T09:03:12.439Z"
+    }
+},
+{
+    "model": "community.tradestatusrequest",
+    "pk": 1,
+    "fields": {
+        "room": 1,
+        "requester": 8,
+        "new_status": "LIBRARY_STORED",
+        "request_status": "ACCEPTED",
+        "created_at": "2025-12-25T05:16:03.356Z",
+        "updated_at": "2025-12-25T05:37:15.621Z"
+    }
+},
+{
+    "model": "community.tradestatusrequest",
+    "pk": 2,
+    "fields": {
+        "room": 2,
+        "requester": 8,
+        "new_status": "LIBRARY_STORED",
+        "request_status": "ACCEPTED",
+        "created_at": "2025-12-25T07:09:38.041Z",
+        "updated_at": "2025-12-25T08:09:43.511Z"
+    }
+},
+{
+    "model": "community.tradestatusrequest",
+    "pk": 3,
+    "fields": {
+        "room": 3,
+        "requester": 9,
+        "new_status": "LIBRARY_STORED",
+        "request_status": "ACCEPTED",
+        "created_at": "2025-12-25T08:57:21.634Z",
+        "updated_at": "2025-12-25T08:57:43.903Z"
+    }
 }
 ]

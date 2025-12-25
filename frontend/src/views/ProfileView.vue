@@ -473,14 +473,37 @@ const getTradeBtnClass = (status) => {
 <style scoped>
 @import url('https://fonts.googleapis.com/css2?family=Hahmlet:wght@300;400;500;600;700&display=swap');
 
+.profile-header {
+  margin-top: 10px;
+  margin-bottom: 40px;
+  text-align: center; 
+}
+
+.main-title {
+  font-size: 36px;       
+  font-weight: 800;
+  color: #4a3423;        
+  margin-bottom: 12px;
+  letter-spacing: 2px;
+  margin-top: 0; 
+  line-height: 1.2;        
+}
+
+.sub-title {
+  font-size: 18px;
+  color: #81532e;        
+  font-weight: 300;
+  margin-top: 0;
+}
 .profile-outer-container {
   min-height: 100vh;
-  padding: 60px 0;
+  padding: 45px 0 60px 0; 
   font-family: 'Hahmlet', serif;
 }
 
 .profile-container { 
-  max-width: 1100px; margin: 0 auto; padding: 40px 20px; 
+  max-width: 1100px; margin: 0 auto;
+  padding: 0px 20px 40px 20px;
   font-family: 'Hahmlet', serif;
 }
 
