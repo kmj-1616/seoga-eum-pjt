@@ -155,6 +155,23 @@ const removeLibrary = (libName) => {
   selectedLibraries.value = selectedLibraries.value.filter(l => l !== libName)
 }
 
+const saveLocationToDB = async (lat, lon) => {
+  const token = localStorage.getItem('access_token');
+  if (!token) return;
+  
+  try {
+    await axios.patch('http://127.0.0.1:8000/api/v1/users/profile/update/', {
+      latitude: lat,
+      longitude: lon
+    }, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    console.log("서버에 가입 유저 위치 저장 완료");
+  } catch (err) {
+    console.error("서버 위치 저장 실패:", err);
+  }
+};
+
 const handleSignup = async () => {
   // 1. 유효성 검사 (비밀번호, 도서관)
   if (formData.value.password !== formData.value.password_confirm) {
@@ -175,40 +192,52 @@ const handleSignup = async () => {
   try {
     const response = await axios.post('http://127.0.0.1:8000/api/v1/users/register/', payload);
     
-    // 2. 필수 데이터 저장 (닉네임이 빠지면 홈에서 '사용자'로 보임)
+    // 2. 필수 데이터 저장
     localStorage.setItem('access_token', response.data.tokens.access);
     localStorage.setItem('refresh_token', response.data.tokens.refresh);
     localStorage.setItem('user_nickname', response.data.user.nickname); 
 
-    // 3. 위치 정보 처리 (LoginView와 동일한 로직 적용)
+    // 3. 위치 정보 처리
     const DEFAULT_LAT = 37.5012;
     const DEFAULT_LON = 127.0395;
 
     if (navigator.geolocation) {
-      await new Promise((resolve) => {
-        navigator.geolocation.getCurrentPosition(
-          (pos) => {
-            localStorage.setItem('user_lat', pos.coords.latitude);
-            localStorage.setItem('user_lon', pos.coords.longitude);
-            resolve();
-          },
-          (err) => {
-            localStorage.setItem('user_lat', DEFAULT_LAT);
-            localStorage.setItem('user_lon', DEFAULT_LON);
-            resolve();
-          },
-          { timeout: 5000 }
-        );
-      });
+      try {
+        await new Promise((resolve) => {
+          navigator.geolocation.getCurrentPosition(
+            async (pos) => {
+              const lat = pos.coords.latitude;
+              const lon = pos.coords.longitude;
+              localStorage.setItem('user_lat', lat);
+              localStorage.setItem('user_lon', lon);
+              
+              await saveLocationToDB(lat, lon);
+              resolve();
+            },
+            async (err) => {
+              console.warn("위치 정보 획득 실패, 기본값 사용:", err.message);
+              localStorage.setItem('user_lat', DEFAULT_LAT);
+              localStorage.setItem('user_lon', DEFAULT_LON);
+              
+              await saveLocationToDB(DEFAULT_LAT, DEFAULT_LON);
+              resolve();
+            },
+            { timeout: 5000, enableHighAccuracy: true } // 정확도 옵션 추가 추천
+          );
+        });
+      } catch (e) {
+        console.error("위치 처리 중 예외 발생:", e);
+      }
     } else {
+      // Geolocation 미지원 브라우저 대응
       localStorage.setItem('user_lat', DEFAULT_LAT);
       localStorage.setItem('user_lon', DEFAULT_LON);
+      await saveLocationToDB(DEFAULT_LAT, DEFAULT_LON);
     }
 
-    // 4. 상태 변경 알림 (네브바/홈 화면 갱신용)
+    // 4. 상태 변경 알림 및 이동
     window.dispatchEvent(new Event('auth-change'));
-
-    alert(`${response.data.user.nickname}님, 서가이음 명부 등록을 환영합니다!`);
+    alert(`${response.data.user.nickname}님, 환영합니다!`);
     router.push('/');
     
   } catch (error) {
