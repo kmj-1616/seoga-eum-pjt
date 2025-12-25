@@ -4,6 +4,7 @@ import time
 import math
 import json
 import requests
+import xmltodict 
 from datetime import datetime, timedelta
 from django.conf import settings
 
@@ -162,6 +163,34 @@ def fix_missing_descriptions():
     print(f"✨ 완료: {updated}권 보강됨")
 
 # --- [3] AI 추천 로직 ---
+
+def get_popular_books_by_user(user):
+    """사용자의 성별/연령대별 최근 3개월 인기 대출 도서 리스트 조회"""
+    auth_key = getattr(settings, 'LIBRARY_API_KEY', None)
+    url = "http://data4library.kr/api/loanItemSrch"
+    # 1. 날짜 설정: 현재 날짜 기준 3개월 전부터 어제까지
+    end_dt = (datetime.now() - timedelta(days=1)).strftime('%Y-%m-%d')
+    start_dt = (datetime.now() - timedelta(days=90)).strftime('%Y-%m-%d')
+    # 2. 성별/연령대 매핑 (API 코드 명세 반영)
+    gender_code = '0' if user.gender == 'M' else '1' if user.gender == 'F' else '2'
+    age_map = {'10s': '14', '20s': '20', '30s': '30', '40s': '40', '50s': '50', '60s+': '60'}
+    age_code = age_map.get(user.age_group, '20')
+    params = {
+        "authKey": auth_key,
+        "startDt": start_dt,
+        "endDt": end_dt,
+        "gender": gender_code,
+        "age": age_code,
+        "pageSize": 10,
+        "format": "json"
+    }
+    try:
+        response = requests.get(url, params=params)
+        docs = response.json().get('response', {}).get('docs', [])
+        # API 응답에서 도서명(bookname) 리스트 추출
+        return [d.get('doc', {}).get('bookname') for d in docs]
+    except:
+        return []
 
 def generate_ai_recommendations(user, force_update=False):
     """사용자 프로필 + 실시간 인기 통계 + 커뮤니티 활동 기반 AI 추천 생성"""
