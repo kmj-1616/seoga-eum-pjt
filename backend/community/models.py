@@ -36,6 +36,7 @@ class TradeChatRoom(models.Model):
 
         # 거래 장소 및 보관함 정보 (판매자가 설정)
     location = models.CharField(max_length=255, blank=True, null=True, help_text="거래 장소")
+    library_address = models.CharField(max_length=255, blank=True, null=True, help_text="도서관 상세 주소")
     locker_number = models.CharField(max_length=50, blank=True, null=True, help_text="도서 보관함 번호")
     created_at = models.DateTimeField(auto_now_add=True)
 

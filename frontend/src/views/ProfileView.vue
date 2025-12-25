@@ -159,16 +159,24 @@
             <p class="shelf-book-author">상대방: {{ room.opponent_nickname }}</p>
             <div class="shelf-badges">
               <span class="badge" :class="room.status.toLowerCase()">
-                {{ room.status === 'REQUESTED' ? '거래 요청' : 
-                  room.status === 'LIBRARY_STORED' ? '보관 중' : '거래 완료' }}
+                {{ 
+                  room.status === 'REQUESTED' ? '거래 요청' : 
+                  room.status === 'APPROVED' ? '대화 중' :
+                  room.status === 'LIBRARY_STORED' ? '보관 중' : 
+                  room.status === 'COMPLETED' ? '거래 종료' : '확인 중' 
+                }}
               </span>
-              <span v-if="room.selling_price" class="badge" style="background-color: #e3f2fd; color: #1976d2; border: 1px solid #90caf9;">
+              <span v-if="room.selling_price" class="badge price-badge">
                 {{ room.selling_price.toLocaleString() }}원
               </span>
             </div>
           </div>
-          <button class="sell-btn" @click="$router.push(`/trade/chat/${room.id}`)">
-            소통하기
+          <button 
+            class="sell-btn" 
+            :class="getTradeBtnClass(room.status)"
+            @click="$router.push(`/trade/chat/${room.id}`)"
+          >
+            {{ getTradeBtnText(room.status) }}
           </button>
         </div>
       </div>
@@ -438,6 +446,28 @@ watch(currentTab, (newTab) => {
     fetchMyTradeRooms();
   }
 });
+
+// 상태별 버튼 텍스트 반환
+const getTradeBtnText = (status) => {
+  switch (status) {
+    case 'REQUESTED':
+      return '요청 확인하기';
+    case 'APPROVED':
+      return '대화 계속하기'; // 승인 후 대화 단계
+    case 'LIBRARY_STORED':
+      return '보관함 정보 확인';
+    case 'COMPLETED':
+      return '거래 기록 보기';
+    default:
+      return '소통창 입장';
+  }
+};
+
+// 상태별 버튼 클래스 반환
+const getTradeBtnClass = (status) => {
+  if (!status) return '';
+  return status.toLowerCase(); 
+};
 </script>
 
 <style scoped>
@@ -523,9 +553,40 @@ watch(currentTab, (newTab) => {
   font-weight: 600;
   transition: all 0.2s;
 }
-.sell-btn:hover {
+/* 상태별 버튼 스타일 */
+/* 버튼 스타일 호버 효과 */
+.sell-btn.approved:hover {
+  background-color: #2e7d32;
+  color: white;
+}
+/* 1. 거래 요청 중 (강조 - 갈색 테두리) */
+.sell-btn.requested {
+  border: 1.5px solid #81532e;
+  color: #81532e;
+}
+.sell-btn.requested:hover {
   background-color: #81532e;
   color: white;
+}
+
+/* 2. 도서관 보관 중 (진행 중 - 파란색 테두리) */
+.sell-btn.library_stored {
+  border: 1.5px solid #1976d2;
+  color: #1976d2;
+}
+.sell-btn.library_stored:hover {
+  background-color: #1976d2;
+  color: white;
+}
+
+/* 3. 거래 완료 (완료 - 회색 테두리) */
+.sell-btn.completed {
+  border: 1.5px solid #999;
+  color: #777;
+}
+.sell-btn.completed:hover {
+  background-color: #f5f5f5;
+  color: #333;
 }
 input[type="number"]::-webkit-outer-spin-button,
 input[type="number"]::-webkit-inner-spin-button {
@@ -614,4 +675,25 @@ input[type="number"]::-webkit-inner-spin-button {
   background: #fdfcfb;
   border: 1px dashed #d1b894;
 }
+
+.shelf-badges {
+  display: flex;
+  gap: 8px;      
+  flex-wrap: wrap; 
+  margin-top: 5px;
+}
+
+/* 상태별 배지 색상 상세 설정 */
+.badge.requested { background-color: #fff3e0; color: #ef6c00; border: 1px solid #ffe0b2; } /* 주황: 요청중 */
+.badge.approved { background-color: #e8f5e9; color: #2e7d32; border: 1px solid #c8e6c9; }  /* 초록: 대화중 */
+.badge.library_stored { background-color: #e3f2fd; color: #1976d2; border: 1px solid #bbdefb; } /* 파랑: 보관중 */
+.badge.completed { background-color: #f5f5f5; color: #9e9e9e; border: 1px solid #e0e0e0; }  /* 회색: 완료 */
+
+/* 가격 배지 별도 스타일 */
+.price-badge {
+  background-color: #f3e5f5 !important;
+  color: #7b1fa2 !important;
+  border: 1px solid #e1bee7 !important;
+}
+
 </style>

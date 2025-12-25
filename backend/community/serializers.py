@@ -39,7 +39,8 @@ class TradeChatRoomSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = TradeChatRoom
-        fields = ['id', 'book_title', 'book_author', 'status', 'opponent_nickname', 'seller_id', 'buyer_id', 'selling_price', 'pending_status_request', 'location', 'locker_number', 'created_at']
+        fields = ['id', 'book_title', 'book_author', 'status', 'opponent_nickname', 
+                  'seller_id', 'buyer_id', 'selling_price', 'pending_status_request', 'location', 'library_address','locker_number', 'created_at']
 
     def get_opponent_nickname(self, obj):
         user = self.context['request'].user
@@ -61,5 +62,4 @@ class TradeChatRoomSerializer(serializers.ModelSerializer):
                 return TradeStatusRequestSerializer(pending_request).data
         except:
             pass
-        return None
         return None
