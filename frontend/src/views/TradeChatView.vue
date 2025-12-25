@@ -63,7 +63,6 @@
           :book-title="bookInfo.title"
           :book-author="bookInfo.author"
           :book-price="tradeData.price || 0"
-          :book-grade="tradeData.grade || '상급'"
           :status="tradeData.status"
           :user-role="userRole"
           :trade-id="tradeId"
@@ -74,10 +73,10 @@
           @confirm-receipt="handleConfirmReceipt"
           @status-changed="handleStatusChanged"
         />
-        
         <div v-else class="loading-box">
           거래 데이터를 불러오는 중...
         </div>
+      
       </aside>
       </div>
     </div>
@@ -149,19 +148,14 @@ const fetchTradeDetails = async () => {
   }
 
   try {
-    console.log("거래 정보 조회 시작...");
     // 1. 거래방 목록 조회
     const res = await axios.get(`http://127.0.0.1:8000/api/v1/community/trade/rooms/`, {
       headers: { Authorization: `Bearer ${token}` }
     });
-
-    console.log("API 응답:", res.data);
     
     const rooms = Array.isArray(res.data) ? res.data : (res.data.results || []);
-    console.log("변환된 rooms:", rooms);
     
     const currentRoom = rooms.find(room => String(room.id) === String(tradeId));
-    console.log("찾은 거래방:", currentRoom, "tradeId:", tradeId);
 
     if (currentRoom) {
       // 2. 도서 정보 설정
@@ -188,17 +182,6 @@ const fetchTradeDetails = async () => {
         console.warn("현재 사용자가 이 거래에 참여하지 않음");
         userRole.value = 'buyer'; // 기본값
       }
-      
-      console.log("거래 정보 로드 완료:", {
-        title: bookInfo.value.title,
-        price: tradeData.value.price,
-        status: tradeData.value.status,
-        userRole: userRole.value,
-        userId: userId,
-        sellerId: currentRoom.seller_id,
-        buyerId: currentRoom.buyer_id,
-        pendingRequest: tradeData.value.pendingStatusRequest
-      });
     } else {
       console.warn(`Trade ID ${tradeId}를 찾을 수 없습니다. 사용 가능한 ID:`, rooms.map(r => r.id));
     }
@@ -223,7 +206,6 @@ const fetchMessages = async () => {
     });
     // 배열 또는 객체 응답 모두 처리
     messages.value = Array.isArray(res.data) ? res.data : (res.data.results || []);
-    console.log("메시지 로드 완료:", messages.value.length, "개 메시지");
     await nextTick();
     scrollToBottom();
   } catch (err) {
@@ -242,7 +224,6 @@ const sendMessage = async () => {
       { content },
       { headers: { Authorization: `Bearer ${token}` } }
     );
-    console.log("메시지 전송 성공:", res.data);
     newMessage.value = '';
     await fetchMessages();
   } catch (err) {
@@ -278,18 +259,15 @@ const approveTrade = async () => {
   const token = localStorage.getItem('access_token');
   
   try {
-    console.log("판매자 거래 승인 시작...");
     const res = await axios.post(
       `http://127.0.0.1:8000/api/v1/community/trade/${tradeId}/seller-approval/`,
       {},
       { headers: { Authorization: `Bearer ${token}` } }
     );
     
-    console.log("판매자 거래 승인 완료:", res.data);
     tradeData.value.status = res.data.new_status;
   } catch (err) {
     console.error("판매자 거래 승인 실패:", err);
-    // 에러는 무시 - 이미 APPROVED 상태일 수 있음
   }
 };
 
@@ -351,8 +329,12 @@ onUnmounted(() => clearInterval(pollInterval));
 .community-title { font-size: 26px; font-weight: 700; color: #4a3423; margin: 0; }
 .community-subtitle { font-size: 18px; color: #81532e; margin: 5px 0 0 0; }
 
-.chat-main-layout { display: flex; gap: 20px; flex: 1; overflow: hidden; }
-
+.chat-main-layout {
+  display: flex;
+  gap: 20px;
+  flex: 1;
+  min-height: 0; /* 자식 요소의 높이 계산을 정확하게 함 */
+}
 /* 채팅창 스타일 */
 .chat-window { 
   flex: 2.5; 
@@ -442,9 +424,25 @@ textarea {
   cursor: not-allowed; 
 }
 
-.chat-sidebar { 
-  flex: 1.2; background: white; border: 1px solid #d1b894; 
-  padding: 25px; display: flex; flex-direction: column; overflow-y: auto; 
+/* 사이드바 높이 및 스크롤 최적화 */
+.chat-sidebar {
+  flex: 1.2;
+  background: white;
+  border: 1px solid #d1b894;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  
+  /* 중요: 잘림 방지 설정 */
+  overflow-y: auto; /* 내용이 많아지면 사이드바 자체에 스크롤 생성 */
+  max-height: 100%; /* 부모 높이를 넘지 않도록 제한 */
+}
+.chat-sidebar::-webkit-scrollbar {
+  width: 4px;
+}
+.chat-sidebar::-webkit-scrollbar-thumb {
+  background: #d1b894;
+  border-radius: 10px;
 }
 .sidebar-title { 
   font-size: 18px; color: #4a3423; margin-bottom: 20px; 

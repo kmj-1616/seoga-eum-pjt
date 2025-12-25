@@ -101,43 +101,34 @@ class TradeMessageView(APIView):
             return Response({"error": "거래방을 찾을 수 없습니다."}, status=404)
 
 class TradeLocationUpdateView(APIView):
-    """판매자가 거래 장소와 보관함 번호를 설정/수정하는 뷰"""
     permission_classes = [permissions.IsAuthenticated]
     
     def post(self, request, trade_id):
         try:
             room = TradeChatRoom.objects.get(id=trade_id)
-            
-            # 현재 사용자가 판매자인지 확인
             if request.user != room.seller:
-                return Response(
-                    {"error": "판매자만 이 작업을 수행할 수 있습니다."}, 
-                    status=403
-                )
+                return Response({"error": "판매자만 이 작업을 수행할 수 있습니다."}, status=403)
             
-            # 요청 데이터에서 location과 locker_number 추출
             location = request.data.get('location')
             locker_number = request.data.get('locker_number')
+            address = request.data.get('address') 
             
             if not location or not locker_number:
-                return Response(
-                    {"error": "거래 장소와 보관함 번호를 모두 입력해주세요."}, 
-                    status=400
-                )
+                return Response({"error": "거래 장소와 보관함 번호를 모두 입력해주세요."}, status=400)
             
-            # 거래 장소와 보관함 번호 저장
-            # 저장은 수락(=LIBRARY_STORED) 이후에만 가능
             if room.status != 'LIBRARY_STORED':
                 return Response({"error": "판매자가 도서관 보관 정보를 입력하려면 먼저 구매자의 보관 요청을 수락해야 합니다."}, status=400)
 
             room.location = location
             room.locker_number = locker_number
+            room.library_address = address
             room.save()
             
             return Response({
                 "message": "거래 장소 정보가 업데이트되었습니다.",
                 "location": room.location,
-                "locker_number": room.locker_number
+                "locker_number": room.locker_number,
+                "address": room.library_address 
             }, status=200)
         
         except TradeChatRoom.DoesNotExist:
