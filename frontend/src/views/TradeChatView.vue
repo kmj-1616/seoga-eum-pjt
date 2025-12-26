@@ -110,7 +110,11 @@ const tradeData = ref({
   buyer_nickname: ''   
 });
 
-const isMyMessage = (msg) => String(msg.user_id) === String(currentUserId.value);
+const isMyMessage = (msg) => {
+  if (!msg || !msg.user_id || !currentUserId.value) return false;
+  // 양쪽 모두 확실하게 문자열로 변환하여 비교
+  return String(msg.user_id) === String(currentUserId.value);
+};
 
 const shouldShowDivider = (index) => {
   if (index === 0) return true;
